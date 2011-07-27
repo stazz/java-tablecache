@@ -1,0 +1,12 @@
+Java TableCache API
+Copyright 2011, Stanislav Muhametsin
+
+Also see each file for additional information of Copyright claims.
+
+Below follows a list of binary dependencies and their licenses;
+----------------------------------------------------------------
+
+This module uses various modules of Qi4j, which is copyright (c) 2008-2011, various contributors.
+All rights reserved. See licences/qi4j.licence.
+
+END OF NOTICE

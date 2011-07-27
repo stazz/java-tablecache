@@ -1,0 +1,5 @@
+The TableCache project provides ways of indexing contents of tables into memory. This greatly improves performance in repository-oriented applications, where the data in the repository might occasionally be changed by some other application. Instead of actively retrieving the value from the repository every time it is needed, it will be retrieved from the cache. This cache may then be updated every time the data in repository gets changed.
+
+The creation of the cache may be customized. The customization include: from which schema, from which tables to read data from, which indexing technique to use when storing the rows of each table, etc.
+
+Reading data is made as quick and easy as possible, provided the rows are indexed with indexing technique supporting the various ways of retrieving data. One example of such data retrieval is retrieving rows with partial primary key. 
