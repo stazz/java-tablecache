@@ -20,10 +20,16 @@ public interface TableIndexer
 
     public Object[] getRow( Object pk );
 
+    public Boolean hasRow( Object pk );
+
+    //    public void insertOrUpdateRow( Object pk, Object[] newRow );
+
     public interface BroadTableIndexer
         extends TableIndexer
     {
         public Object[] getRow( String[] pkNames, Object[] pkValues );
+
+        //        public void insertRow( String[] pkNames, Object[] row );
 
         public TableAccessor getRowsPartialPK( String[] pkNames, Object[] pkValues );
     }

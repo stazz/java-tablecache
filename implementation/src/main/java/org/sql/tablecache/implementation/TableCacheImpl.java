@@ -23,7 +23,9 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import math.permutations.PermutationGenerator;
 import math.permutations.PermutationGeneratorProvider;
@@ -31,8 +33,8 @@ import math.permutations.PermutationGeneratorProvider;
 import org.qi4j.api.injection.scope.Service;
 import org.sql.generation.api.qi4j.SQLVendorService;
 import org.sql.generation.api.vendor.SQLVendor;
+import org.sql.tablecache.api.JDBCMetaDataPrimaryKeyProvider;
 import org.sql.tablecache.api.PrimaryKeyInfoProvider;
-import org.sql.tablecache.api.PrimaryKeyInfoProvider.JDBCMetaDataPrimaryKeyDetector;
 import org.sql.tablecache.api.PrimaryKeyInfoProvider.PrimaryKeyInfo;
 import org.sql.tablecache.api.TableCache;
 import org.sql.tablecache.api.TableIndexer;
@@ -44,133 +46,141 @@ public class TableCacheImpl
     implements TableCache
 {
 
-    public static class TableInfoImpl
-        implements TableInfo
+    protected static class CacheInfo
     {
-        private final String _tableName;
-        private final List<String> _columns;
-        private final Map<String, Integer> _columnIndices;
-        private final Map<String, Integer> _pkIndices;
-        private final PrimaryKeyInfo _pkInfo;
+        private final TableInfo _tableInfo;
+        private final Map<Class<?>, TableIndexer> _accessors;
+        private final ReadWriteLock _accessLock;
 
-        public TableInfoImpl( String tableName, List<String> columns, PrimaryKeyInfo pkInfo )
+        private CacheInfo( TableInfo tableInfo )
         {
-            this._tableName = tableName;
-            this._columns = columns;
-            this._pkInfo = pkInfo;
-            this._columnIndices = new HashMap<String, Integer>();
-            Set<String> pkColumns = this._pkInfo.getKeyNames();
-            this._pkIndices = new HashMap<String, Integer>( pkColumns.size() );
-            Integer pkIdx = 0;
-            for( Integer idx = 0; idx < columns.size(); ++idx )
-            {
-                String col = columns.get( idx );
-                this._columnIndices.put( col, idx );
-                if( pkColumns.contains( col ) )
-                {
-                    this._pkIndices.put( col, pkIdx );
-                    ++pkIdx;
-                }
-            }
+            this._tableInfo = tableInfo;
+            this._accessors = new HashMap<Class<?>, TableIndexer>();
+            this._accessLock = new ReentrantReadWriteLock();
         }
 
-        @Override
-        public Map<String, Integer> getColumnIndices()
+        public Map<Class<?>, TableIndexer> getAccessors()
         {
-            return this._columnIndices;
+            return this._accessors;
         }
 
-        @Override
-        public Set<String> getPkColumns()
+        public TableInfo getTableInfo()
         {
-            return this._pkInfo.getKeyNames();
+            return this._tableInfo;
         }
 
-        @Override
-        public Map<String, Integer> getPkIndices()
+        public ReadWriteLock getAccessLock()
         {
-            return this._pkIndices;
-        }
-
-        @Override
-        public List<String> getColumns()
-        {
-            return this._columns;
-        }
-
-        @Override
-        public Object createThinIndexPK( Object[] row )
-        {
-            return this._pkInfo.createThinIndexingMultiKey( this, row );
-        }
-
-        @Override
-        public String getTableName()
-        {
-            return this._tableName;
-        }
-
-        @Override
-        public Boolean useBroadIndexing()
-        {
-            return this._pkInfo.useBroadIndexing();
-        }
-
-        @Override
-        public Boolean useThinIndexing()
-        {
-            return this._pkInfo.useThinIndexing();
+            return this._accessLock;
         }
     }
 
-    private Map<String, Map<String, TableInfo>> _tableInfos;
+    private final Map<String, Map<String, CacheInfo>> _cacheInfos;
 
-    private Map<String, Map<String, Map<Class<?>, TableIndexer>>> _accessors;
+    private final Object _cacheLoadingLock;
 
     @Service
     private SQLVendorService _vendor;
 
     public TableCacheImpl()
     {
-        this._tableInfos = new HashMap<String, Map<String, TableInfo>>();
-        this._accessors = new HashMap<String, Map<String, Map<Class<?>, TableIndexer>>>();
+        this._cacheLoadingLock = new Object();
+        this._cacheInfos = new HashMap<String, Map<String, CacheInfo>>();
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.trinity.db.runtime.metameta.TableCachingService#getTableInfos()
-     */
-    @Override
-    public Map<String, Map<String, TableInfo>> getTableInfos()
+    protected CacheInfo getCacheInfo( String tableName )
     {
-        return this._tableInfos;
+        synchronized( this._cacheLoadingLock )
+        {
+            return this._cacheInfos.values().iterator().next().get( tableName );
+        }
+    }
+
+    protected CacheInfo getCacheInfo( String schemaName, String tableName )
+    {
+        synchronized( this._cacheLoadingLock )
+        {
+            return this._cacheInfos.get( schemaName ).get( tableName );
+        }
+    }
+
+    @Override
+    public TableInfo getTableInfo( String schemaName, String tableName )
+    {
+        return this.getCacheInfo( schemaName, tableName ).getTableInfo();
+    }
+
+    @Override
+    public TableInfo getTableInfo( String tableName )
+    {
+        return this.getCacheInfo( tableName ).getTableInfo();
     }
 
     @Override
     public <AccessorType extends TableIndexer> AccessorType getIndexer( Class<AccessorType> accessorClass,
         String schemaName, String tableName )
     {
-        return accessorClass.cast( this._accessors.get( schemaName ).get( tableName ).get( accessorClass ) );
+        return accessorClass.cast( this.getCacheInfo( schemaName, tableName ).getAccessors().get( accessorClass ) );
     }
 
     @Override
     public <AccessorType extends TableIndexer> AccessorType getIndexer( Class<AccessorType> accessorClass,
         String tableName )
     {
-        return this.getIndexer( accessorClass, this._accessors.keySet().iterator().next(), tableName );
+        return accessorClass.cast( this.getCacheInfo( tableName ).getAccessors().get( accessorClass ) );
     }
 
     @Override
     public TableIndexer getIndexer( String schemaName, String tableName )
     {
-        return this._accessors.get( schemaName ).get( tableName ).values().iterator().next();
+        return this.getCacheInfo( schemaName, tableName ).getAccessors().values().iterator().next();
     }
 
     @Override
     public TableIndexer getIndexer( String tableName )
     {
-        return this.getIndexer( this._accessors.keySet().iterator().next(), tableName );
+        return this.getCacheInfo( tableName ).getAccessors().values().iterator().next();
+    }
+
+    @Override
+    public ReadWriteLock getTableLock( String schemaName, String tableName )
+    {
+        return this.getCacheInfo( schemaName, tableName ).getAccessLock();
+    }
+
+    @Override
+    public ReadWriteLock getTableLock( String tableName )
+    {
+        return this.getCacheInfo( tableName ).getAccessLock();
+    }
+
+    @Override
+    public void insertOrUpdateRow( String schemaName, String tableName, Object[] row )
+    {
+        this.doInsertOrUpdateRow( this.getCacheInfo( schemaName, tableName ), row );
+    }
+
+    @Override
+    public void insertOrUpdateRow( String tableName, Object[] row )
+    {
+        this.doInsertOrUpdateRow( this.getCacheInfo( tableName ), row );
+    }
+
+    protected void doInsertOrUpdateRow( CacheInfo cacheInfo, Object[] row )
+    {
+        Lock lock = cacheInfo.getAccessLock().writeLock();
+        lock.lock();
+        try
+        {
+            for( TableIndexer indexer : cacheInfo.getAccessors().values() )
+            {
+                ((AbstractTableIndexer) indexer).insertOrUpdateRow( row );
+            }
+        }
+        finally
+        {
+            lock.unlock();
+        }
     }
 
     /*
@@ -189,7 +199,7 @@ public class TableCacheImpl
     public void buildCache( Connection connection, String schemaName, TableFilter tableFilter )
         throws SQLException
     {
-        this.buildCache( connection, schemaName, tableFilter, new JDBCMetaDataPrimaryKeyDetector() );
+        this.buildCache( connection, schemaName, tableFilter, new JDBCMetaDataPrimaryKeyProvider() );
     }
 
     @Override
@@ -226,7 +236,7 @@ public class TableCacheImpl
     public void buildCache( Connection connection, String schemaName, String... tableNames )
         throws SQLException
     {
-        this.buildCache( connection, schemaName, new JDBCMetaDataPrimaryKeyDetector(), tableNames );
+        this.buildCache( connection, schemaName, new JDBCMetaDataPrimaryKeyProvider(), tableNames );
     }
 
     /*
@@ -240,12 +250,7 @@ public class TableCacheImpl
         String... tableNames )
         throws SQLException
     {
-        Map<String, TableInfo> map = this._tableInfos.get( schemaName );
-        if( map == null )
-        {
-            map = new HashMap<String, TableInfo>();
-            this._tableInfos.put( schemaName, map );
-        }
+        Map<String, CacheInfo> map = new HashMap<String, CacheInfo>();
 
         for( String tableName : tableNames )
         {
@@ -255,22 +260,46 @@ public class TableCacheImpl
             {
                 while( cols.next() )
                 {
-                    String colName = cols.getString( "COLUMN_NAME" );
-                    columnList.add( colName );
+                    columnList.add( cols.getString( "COLUMN_NAME" ).toLowerCase() );
                 }
-
             }
             finally
             {
                 cols.close();
             }
-            cols = connection.getMetaData().getPrimaryKeys( null, schemaName, tableName );
             PrimaryKeyInfo pkInfo = detector.getPrimaryKeys( connection, schemaName, tableName );
 
-            map.put( tableName, new TableCacheImpl.TableInfoImpl( tableName, columnList, pkInfo ) );
+            map.put( tableName, new CacheInfo( new TableInfoImpl( tableName, columnList, pkInfo ) ) );
         }
 
         this.loadContents( connection, schemaName, map );
+
+        synchronized( this._cacheLoadingLock )
+        {
+            Map<String, CacheInfo> existing = this._cacheInfos.get( schemaName );
+            if( existing == null )
+            {
+                this._cacheInfos.put( schemaName, map );
+            }
+            else
+            {
+                for( Map.Entry<String, CacheInfo> entry : map.entrySet() )
+                {
+                    if( existing.containsKey( entry.getKey() ) )
+                    {
+                        // TODO smarter merge.
+                        synchronized( existing.get( entry.getKey() ).getAccessLock() )
+                        {
+                            existing.put( entry.getKey(), entry.getValue() );
+                        }
+                    }
+                    else
+                    {
+                        existing.put( entry.getKey(), entry.getValue() );
+                    }
+                }
+            }
+        }
     }
 
     /*
@@ -281,72 +310,74 @@ public class TableCacheImpl
     @Override
     public void clearCache()
     {
-        this._tableInfos.clear();
-        this._accessors.clear();
+        synchronized( this._cacheLoadingLock )
+        {
+            this._cacheInfos.clear();
+        }
     }
 
-    protected void loadContents( Connection connection, String schemaName, Map<String, TableInfo> tableInfos )
+    @Override
+    public Object[] createRow( ResultSet row, TableInfo tableInfo )
+        throws SQLException
+    {
+        List<String> cols = tableInfo.getColumns();
+        Object[] result = new Object[cols.size()];
+        // Populate row array in a order as specified by column name list 
+        for( String col : cols )
+        {
+            result[cols.indexOf( col )] = row.getObject( col );
+        }
+
+        return result;
+    }
+
+    protected void loadContents( Connection connection, String schemaName, Map<String, CacheInfo> cacheInfos )
         throws SQLException
     {
         Statement stmt = connection.createStatement();
         try
         {
-            for( String table : tableInfos.keySet() )
+            for( String table : cacheInfos.keySet() )
             {
-                TableInfo tableInfo = tableInfos.get( table );
-                Map<String, Integer> colIndices = tableInfo.getColumnIndices();
-                Map<String, Map<Class<?>, TableIndexer>> schemaAccessors = this._accessors.get( schemaName );
-                if( schemaAccessors == null )
-                {
-                    schemaAccessors = new HashMap<String, Map<Class<?>, TableIndexer>>();
-                    this._accessors.put( schemaName, schemaAccessors );
-                }
-                Map<Class<?>, TableIndexer> tableAccessors = schemaAccessors.get( table );
-                if( tableAccessors == null )
-                {
-                    tableAccessors = new HashMap<Class<?>, TableIndexer>();
-                    schemaAccessors.put( table, tableAccessors );
-                }
+                CacheInfo cacheInfo = cacheInfos.get( table );
+                TableInfo tableInfo = cacheInfo.getTableInfo();
+                List<String> cols = tableInfo.getColumns();
+                Map<Class<?>, TableIndexer> tableAccessors = cacheInfo.getAccessors();
+
+                Boolean useBroadIndexing = tableInfo.useBroadIndexing();
+                Boolean useThinIndexing = tableInfo.useThinIndexing();
 
                 // For broad indexing
-                PermutationGenerator<String[]> permutation = null;
                 BroadTableCacheAccessorImpl broadCache = null;
-                if( tableInfo.useBroadIndexing() )
+                if( useBroadIndexing )
                 {
-                    permutation = PermutationGeneratorProvider.createGenericComparablePermutationGenerator(
-                        String.class, tableInfo.getPkColumns() );
-                    broadCache = new BroadTableCacheAccessorImpl( tableInfo );
+                    broadCache = new BroadTableCacheAccessorImpl( cacheInfo );
                     tableAccessors.put( BroadTableIndexer.class, broadCache );
                 }
 
                 // For thin indexing
                 ThinTableCacheAccessorImpl thinCache = null;
-                if( tableInfo.useThinIndexing() )
+                if( useThinIndexing )
                 {
-                    thinCache = new ThinTableCacheAccessorImpl( tableInfo );
+                    thinCache = new ThinTableCacheAccessorImpl( cacheInfo );
                     tableAccessors.put( ThinTableIndexer.class, thinCache );
                 }
 
-                ResultSet rs = stmt.executeQuery( this.getQueryForAllRows( schemaName, table, colIndices.keySet() ) );
+                ResultSet rs = stmt.executeQuery( this.getQueryForAllRows( schemaName, table, cols ) );
                 try
                 {
                     while( rs.next() )
                     {
-                        Object[] row = new Object[colIndices.size()];
-                        // Populate row array
-                        for( Map.Entry<String, Integer> col : colIndices.entrySet() )
-                        {
-                            row[col.getValue()] = rs.getObject( col.getKey() );
-                        }
+                        Object[] row = this.createRow( rs, tableInfo );
 
                         // Further process the row (add it to cache)
-                        if( tableInfo.useBroadIndexing() )
+                        if( useBroadIndexing )
                         {
-                            broadCache.processRowWithBroadIndexing( colIndices, row, permutation );
+                            broadCache.insertOrUpdateRow( row );
                         }
-                        if( tableInfo.useThinIndexing() )
+                        if( useThinIndexing )
                         {
-                            thinCache.processRowWithThinIndexing( row );
+                            thinCache.insertOrUpdateRow( row );
                         }
                     }
                 }

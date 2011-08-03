@@ -21,14 +21,17 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.locks.Lock;
 
 import math.permutations.PermutationGenerator;
+import math.permutations.PermutationGeneratorProvider;
 
 import org.sql.tablecache.api.TableAccessor;
 import org.sql.tablecache.api.TableIndexer.BroadTableIndexer;
 import org.sql.tablecache.api.TableInfo;
+import org.sql.tablecache.implementation.TableCacheImpl.CacheInfo;
 
-public class BroadTableCacheAccessorImpl
+public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
     implements BroadTableIndexer
 {
     private static class TableAccessorImpl
@@ -44,15 +47,17 @@ public class BroadTableCacheAccessorImpl
             }
         };
 
+        private final CacheInfo _cacheInfo;
         private final Map<Object, Object> _pkIndex;
         private final int _decidedPKs;
         private final int _maxPKs;
 
-        public TableAccessorImpl( Map<Object, Object> pkIndex, int decidedPKs, int maxPKs )
+        public TableAccessorImpl( CacheInfo cacheInfo, Map<Object, Object> pkIndex, int decidedPKs )
         {
+            this._cacheInfo = cacheInfo;
             this._pkIndex = pkIndex;
             this._decidedPKs = decidedPKs;
-            this._maxPKs = maxPKs;
+            this._maxPKs = cacheInfo.getTableInfo().getPkColumns().size();
         }
 
         @Override
@@ -72,34 +77,60 @@ public class BroadTableCacheAccessorImpl
                     {
                         this._iters.push( _pkIndex.values().iterator() );
                     }
-                    this.reset();
+                    Lock lock = _cacheInfo.getAccessLock().readLock();
+                    lock.lock();
+                    try
+                    {
+                        this.reset();
+                    }
+                    finally
+                    {
+                        lock.unlock();
+                    }
                 }
 
                 @Override
                 public boolean hasNext()
                 {
                     boolean result = false;
-                    while( !result && !this._iters.isEmpty() )
+                    Lock lock = _cacheInfo.getAccessLock().readLock();
+                    lock.lock();
+                    try
                     {
-                        result = this._iters.peek().hasNext();
-                        if( !result )
+                        while( !result && !this._iters.isEmpty() )
                         {
-                            this._iters.pop();
+                            result = this._iters.peek().hasNext();
+                            if( !result )
+                            {
+                                this._iters.pop();
+                            }
+                        }
+
+                        if( result && this._iters.size() < this._dequeDepth )
+                        {
+                            this.reset();
                         }
                     }
-
-                    if( result && this._iters.size() < this._dequeDepth )
+                    finally
                     {
-                        this.reset();
+                        lock.unlock();
                     }
-
                     return result;
                 }
 
                 @Override
                 public Object[] next()
                 {
-                    return (Object[]) this._iters.peek().next();
+                    Lock lock = _cacheInfo.getAccessLock().readLock();
+                    lock.lock();
+                    try
+                    {
+                        return (Object[]) this._iters.peek().next();
+                    }
+                    finally
+                    {
+                        lock.unlock();
+                    }
                 }
 
                 @Override
@@ -130,18 +161,75 @@ public class BroadTableCacheAccessorImpl
     }
 
     private final Map<String, Map<Object, Object>> _contents;
-    private final TableInfo _tableInfo;
+    private final CacheInfo _cacheInfo;
+    private final PermutationGenerator<String[]> _permutations;
 
-    public BroadTableCacheAccessorImpl( TableInfo tableInfo )
+    public BroadTableCacheAccessorImpl( CacheInfo cacheInfo )
     {
-        this._tableInfo = tableInfo;
+        this._cacheInfo = cacheInfo;
         this._contents = new HashMap<String, Map<Object, Object>>();
+        this._permutations = PermutationGeneratorProvider.createGenericComparablePermutationGenerator( String.class,
+            this._cacheInfo.getTableInfo().getPkColumns() );
     }
 
-    protected void processRowWithBroadIndexing( Map<String, Integer> columnIndices, Object[] row,
-        PermutationGenerator<String[]> permutations )
+    @Override
+    public Object[] getRow( String[] pkNames, Object[] pkValues )
     {
-        for( String[] pkNames : permutations )
+        Lock lock = this._cacheInfo.getAccessLock().readLock();
+        lock.lock();
+        try
+        {
+            Map<Object, Object> current = this._contents.get( pkNames[0] );
+            for( int idx = 1; idx < pkNames.length; ++idx )
+            {
+                current = ((Map<String, Map<Object, Object>>) current.get( pkValues[idx - 1] )).get( pkNames[idx] );
+            }
+
+            return (Object[]) current.get( pkValues[pkValues.length - 1] );
+        }
+        finally
+        {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public Object[] getRow( Object pk )
+    {
+        Lock lock = this._cacheInfo.getAccessLock().readLock();
+        lock.lock();
+        try
+        {
+            return (Object[]) this._contents.values().iterator().next().get( pk );
+        }
+        finally
+        {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public Boolean hasRow( Object pk )
+    {
+        Lock lock = this._cacheInfo.getAccessLock().readLock();
+        lock.lock();
+        try
+        {
+            return this._contents.values().iterator().next().containsKey( pk );
+        }
+        finally
+        {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    protected void insertOrUpdateRow( Object[] newRow )
+    {
+        // TODO validate new row.
+        // Write-locking is not required, as table cache should do it.
+        Map<String, Integer> columnIndices = this._cacheInfo.getTableInfo().getColumnIndices();
+        for( String[] pkNames : this._permutations )
         {
             Map<Object, Object> map = (Map) this._contents;
             for( int idx = 0; idx < pkNames.length - 1; ++idx )
@@ -154,7 +242,7 @@ public class BroadTableCacheAccessorImpl
                     map.put( pkName, o );
                 }
 
-                Object value = row[columnIndices.get( pkName )];
+                Object value = newRow[columnIndices.get( pkName )];
                 map = (Map<Object, Object>) o.get( value );
                 if( map == null )
                 {
@@ -170,71 +258,63 @@ public class BroadTableCacheAccessorImpl
                 o = new HashMap<Object, Object>();
                 map.put( pkName, o );
             }
-            o.put( row[columnIndices.get( pkName )], row );
+            o.put( newRow[columnIndices.get( pkName )], newRow );
         }
-    }
-
-    @Override
-    public Object[] getRow( String[] pkNames, Object[] pkValues )
-    {
-        Map<Object, Object> current = this._contents.get( pkNames[0] );
-        for( int idx = 1; idx < pkNames.length; ++idx )
-        {
-            current = ((Map<String, Map<Object, Object>>) current.get( pkValues[idx - 1] )).get( pkNames[idx] );
-        }
-
-        return (Object[]) current.get( pkValues[pkValues.length - 1] );
-    }
-
-    @Override
-    public Object[] getRow( Object pk )
-    {
-        return (Object[]) this._contents.values().iterator().next().get( pk );
     }
 
     @Override
     public TableAccessor getRows()
     {
-        return new TableAccessorImpl( this._contents.values().iterator().next(), 0, this._tableInfo.getPkColumns()
-            .size() );
+        return new TableAccessorImpl( this._cacheInfo, this._contents.values().iterator().next(), 0 );
     }
 
     @Override
     public TableAccessor getRowsPartialPK( String[] pkNames, Object[] pkValues )
     {
-        Set<String> pkNamesSet = this._tableInfo.getPkColumns();
-        Map<Object, Object> current = this._contents.get( pkNames[0] );
-        for( int idx = 1; idx < pkNames.length; ++idx )
+        Lock lock = this._cacheInfo.getAccessLock().readLock();
+        lock.lock();
+        try
         {
-            Map<String, Map<Object, Object>> mapz = (Map<String, Map<Object, Object>>) current.get( pkValues[idx - 1] );
-            if( mapz != null )
+            Set<String> pkNamesSet = this._cacheInfo.getTableInfo().getPkColumns();
+            Map<Object, Object> current = this._contents.get( pkNames[0] );
+            for( int idx = 1; idx < pkNames.length; ++idx )
             {
-                current = mapz.get( pkNames[idx] );
+                Map<String, Map<Object, Object>> mapz = (Map<String, Map<Object, Object>>) current
+                    .get( pkValues[idx - 1] );
+                if( mapz != null )
+                {
+                    current = mapz.get( pkNames[idx] );
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            TableAccessor result = null;
+            if( current != null )
+            {
+                Map<Object, Object> mapz = (Map<Object, Object>) current.get( pkValues[pkValues.length - 1] );
+                if( mapz == null )
+                {
+                    result = TableAccessorImpl.EMPTY;
+                }
+                else
+                {
+                    result = new TableAccessorImpl( this._cacheInfo, (Map<Object, Object>) (mapz).values().iterator()
+                        .next(), pkNames.length );
+                }
             }
             else
-            {
-                break;
-            }
-        }
-
-        TableAccessor result = null;
-        if( current != null )
-        {
-            Map<Object, Object> mapz = (Map<Object, Object>) current.get( pkValues[pkValues.length - 1] );
-            if( mapz == null )
             {
                 result = TableAccessorImpl.EMPTY;
             }
-            else
-            {
-                result = new TableAccessorImpl( (Map<Object, Object>) (mapz).values().iterator().next(),
-                    pkNames.length, pkNamesSet.size() );
-            }
+
+            return result;
         }
-        else
+        finally
         {
-            result = TableAccessorImpl.EMPTY;
+            lock.unlock();
         }
-        return result;
     }
 }

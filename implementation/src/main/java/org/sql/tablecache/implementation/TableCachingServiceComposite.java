@@ -42,10 +42,13 @@ public interface TableCachingServiceComposite
 
         private Map<String, TableCache> _caches;
 
+        private Object _cacheAccessLock;
+
         @Override
         public void activate()
             throws Exception
         {
+            this._cacheAccessLock = new Object();
             this._caches = new HashMap<String, TableCache>();
         }
 
@@ -55,16 +58,21 @@ public interface TableCachingServiceComposite
         {
             this._caches.clear();
             this._caches = null;
+            this._cacheAccessLock = null;
         }
 
         @Override
         public TableCache getOrCreateCache( String cacheID )
         {
-            TableCache cache = this._caches.get( cacheID );
-            if( cache == null )
+            TableCache cache = null;
+            synchronized( this._cacheAccessLock )
             {
-                cache = this._obf.newObjectBuilder( TableCacheImpl.class ).newInstance();
-                this._caches.put( cacheID, cache );
+                cache = this._caches.get( cacheID );
+                if( cache == null )
+                {
+                    cache = this._obf.newObjectBuilder( TableCacheImpl.class ).newInstance();
+                    this._caches.put( cacheID, cache );
+                }
             }
             return cache;
         }
@@ -72,10 +80,14 @@ public interface TableCachingServiceComposite
         @Override
         public TableCache getCache( String cacheID )
         {
-            TableCache cache = this._caches.get( cacheID );
-            if( cache == null )
+            TableCache cache = null;
+            synchronized( this._cacheAccessLock )
             {
-                throw new IllegalArgumentException( "The table cache with ID " + cacheID + " is not present." );
+                cache = this._caches.get( cacheID );
+                if( cache == null )
+                {
+                    throw new IllegalArgumentException( "The table cache with ID " + cacheID + " is not present." );
+                }
             }
             return cache;
         }
@@ -83,7 +95,19 @@ public interface TableCachingServiceComposite
         @Override
         public void removeCache( String cacheID )
         {
-            this._caches.remove( cacheID );
+            synchronized( this._cacheAccessLock )
+            {
+                this._caches.remove( cacheID );
+            }
+        }
+
+        @Override
+        public Boolean hasCache( String cacheID )
+        {
+            synchronized( this._cacheAccessLock )
+            {
+                return this._caches.containsKey( cacheID );
+            }
         }
     }
 

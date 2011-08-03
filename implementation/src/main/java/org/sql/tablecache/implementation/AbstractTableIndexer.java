@@ -23,18 +23,20 @@ import org.sql.tablecache.api.TableInfo;
  * 
  * @author 2011 Stanislav Muhametsin
  */
-public abstract class AbstractTableCacheAccessor
+public abstract class AbstractTableIndexer
     implements TableIndexer
 {
-    private final Map<String, Map<String, TableInfo>> _metaInfo;
+    //    private final Map<String, Map<String, TableInfo>> _metaInfo;
+    //
+    //    public AbstractTableCacheAccessor( Map<String, Map<String, TableInfo>> metaInfo )
+    //    {
+    //        this._metaInfo = metaInfo;
+    //    }
+    //
+    //    protected Map<String, Map<String, TableInfo>> getMetaInfo()
+    //    {
+    //        return this._metaInfo;
+    //    }
 
-    public AbstractTableCacheAccessor( Map<String, Map<String, TableInfo>> metaInfo )
-    {
-        this._metaInfo = metaInfo;
-    }
-
-    protected Map<String, Map<String, TableInfo>> getMetaInfo()
-    {
-        return this._metaInfo;
-    }
+    protected abstract void insertOrUpdateRow( Object[] row );
 }

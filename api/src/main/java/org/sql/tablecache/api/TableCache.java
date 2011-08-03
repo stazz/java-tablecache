@@ -15,8 +15,9 @@
 package org.sql.tablecache.api;
 
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Map;
+import java.util.concurrent.locks.ReadWriteLock;
 
 import org.qi4j.api.common.Optional;
 
@@ -27,7 +28,13 @@ import org.qi4j.api.common.Optional;
 public interface TableCache
 {
 
-    public Map<String, Map<String, TableInfo>> getTableInfos();
+    public TableInfo getTableInfo( String tableName );
+
+    public TableInfo getTableInfo( String schemaName, String tableName );
+
+    public ReadWriteLock getTableLock( String tableName );
+
+    public ReadWriteLock getTableLock( String schemaName, String tableName );
 
     public TableIndexer getIndexer( String tableName );
 
@@ -56,7 +63,14 @@ public interface TableCache
         String... tableNames )
         throws SQLException;
 
+    public Object[] createRow( ResultSet row, TableInfo tableInfo )
+        throws SQLException;
+
     public void clearCache();
+
+    public void insertOrUpdateRow( String tableName, Object[] row );
+
+    public void insertOrUpdateRow( String schemaName, String tableName, Object[] row );
 
     public interface TableFilter
     {

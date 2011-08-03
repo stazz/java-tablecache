@@ -50,4 +50,6 @@ public interface TableCachingService
      */
     public void removeCache( String cacheID );
 
+    public Boolean hasCache( String cacheID );
+
 }

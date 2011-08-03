@@ -15,10 +15,7 @@
 package org.sql.tablecache.api;
 
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 public interface PrimaryKeyInfoProvider
@@ -36,69 +33,4 @@ public interface PrimaryKeyInfoProvider
 
     public PrimaryKeyInfo getPrimaryKeys( Connection connection, String schemaName, String tableName )
         throws SQLException;
-
-    public class JDBCMetaDataPrimaryKeyDetector
-        implements PrimaryKeyInfoProvider
-    {
-        @Override
-        public PrimaryKeyInfo getPrimaryKeys( Connection connection, final String schemaName, final String tableName )
-            throws SQLException
-        {
-            final Set<String> pks = new HashSet<String>();
-            ResultSet cols = connection.getMetaData().getPrimaryKeys( null, schemaName, tableName );
-            try
-            {
-                while( cols.next() )
-                {
-                    pks.add( cols.getString( "COLUMN_NAME" ) );
-                }
-            }
-            finally
-            {
-                cols.close();
-            }
-
-            return new PrimaryKeyInfo()
-            {
-                @Override
-                public Set<String> getKeyNames()
-                {
-                    return pks;
-                }
-
-                @Override
-                public Object createThinIndexingMultiKey( TableInfo tableInfo, Object[] row )
-                {
-                    return JDBCMetaDataPrimaryKeyDetector.this.createThinIndexingMultiKey( tableInfo, row );
-                }
-
-                @Override
-                public Boolean useBroadIndexing()
-                {
-                    return JDBCMetaDataPrimaryKeyDetector.this.useBroadIndexing( schemaName, tableName );
-                }
-
-                @Override
-                public Boolean useThinIndexing()
-                {
-                    return JDBCMetaDataPrimaryKeyDetector.this.useThinIndexing( schemaName, tableName );
-                }
-            };
-        }
-
-        protected Boolean useBroadIndexing( String schemaName, String tableName )
-        {
-            return false;
-        }
-
-        protected Object createThinIndexingMultiKey( TableInfo tableInfo, Object[] row )
-        {
-            return null;
-        }
-
-        protected Boolean useThinIndexing( String schemaName, String tableName )
-        {
-            return true;
-        }
-    }
 }

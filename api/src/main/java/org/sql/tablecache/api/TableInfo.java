@@ -31,6 +31,13 @@ public interface TableInfo
 
     public Map<String, Integer> getPkIndices();
 
+    /**
+     * Returns the names of all the columns of this table. It is guaranteed that this list will be essentially a set.
+     * Additionally, for all column names, the value for the column is at same index in row, as it is in the column list
+     * returned by this method.
+     * 
+     * @return The names of all the columns of this table.
+     */
     public List<String> getColumns();
 
     public String getTableName();
