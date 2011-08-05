@@ -12,10 +12,25 @@
  *
  */
 
-package org.sql.tablecache.api;
+package org.sql.tablecache.implementation;
 
-public interface TableAccessor
-    extends Iterable<TableRow>
+import org.qi4j.bootstrap.Assembler;
+import org.qi4j.bootstrap.AssemblyException;
+import org.qi4j.bootstrap.ModuleAssembly;
+
+/**
+ * 
+ * @author 2011 Stanislav Muhametsin
+ */
+public class TableCacheAssembler
+    implements Assembler
 {
 
+    @Override
+    public void assemble( ModuleAssembly module )
+        throws AssemblyException
+    {
+        module.services( TableCachingServiceComposite.class );
+        module.objects( TableCacheImpl.class );
+    }
 }

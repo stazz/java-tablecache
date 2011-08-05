@@ -28,7 +28,7 @@ import math.permutations.PermutationGeneratorProvider;
 
 import org.sql.tablecache.api.TableAccessor;
 import org.sql.tablecache.api.TableIndexer.BroadTableIndexer;
-import org.sql.tablecache.api.TableInfo;
+import org.sql.tablecache.api.TableRow;
 import org.sql.tablecache.implementation.TableCacheImpl.CacheInfo;
 
 public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
@@ -41,7 +41,7 @@ public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
         {
 
             @Override
-            public Iterator<Object[]> iterator()
+            public Iterator<TableRow> iterator()
             {
                 return Collections.EMPTY_SET.iterator();
             }
@@ -61,9 +61,9 @@ public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
         }
 
         @Override
-        public Iterator<Object[]> iterator()
+        public Iterator<TableRow> iterator()
         {
-            return new Iterator<Object[]>()
+            return new Iterator<TableRow>()
             {
                 private final Deque<Iterator<Object>> _iters = new ArrayDeque<Iterator<Object>>();
                 private final int _dequeDepth = _maxPKs - _decidedPKs;
@@ -119,13 +119,13 @@ public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
                 }
 
                 @Override
-                public Object[] next()
+                public TableRow next()
                 {
                     Lock lock = _cacheInfo.getAccessLock().readLock();
                     lock.lock();
                     try
                     {
-                        return (Object[]) this._iters.peek().next();
+                        return (TableRow) this._iters.peek().next();
                     }
                     finally
                     {
@@ -173,7 +173,7 @@ public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
     }
 
     @Override
-    public Object[] getRow( String[] pkNames, Object[] pkValues )
+    public TableRow getRow( String[] pkNames, Object[] pkValues )
     {
         Lock lock = this._cacheInfo.getAccessLock().readLock();
         lock.lock();
@@ -185,7 +185,7 @@ public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
                 current = ((Map<String, Map<Object, Object>>) current.get( pkValues[idx - 1] )).get( pkNames[idx] );
             }
 
-            return (Object[]) current.get( pkValues[pkValues.length - 1] );
+            return (TableRow) current.get( pkValues[pkValues.length - 1] );
         }
         finally
         {
@@ -194,13 +194,13 @@ public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
     }
 
     @Override
-    public Object[] getRow( Object pk )
+    public TableRow getRow( Object pk )
     {
         Lock lock = this._cacheInfo.getAccessLock().readLock();
         lock.lock();
         try
         {
-            return (Object[]) this._contents.values().iterator().next().get( pk );
+            return (TableRow) this._contents.values().iterator().next().get( pk );
         }
         finally
         {
@@ -224,11 +224,10 @@ public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
     }
 
     @Override
-    protected void insertOrUpdateRow( Object[] newRow )
+    protected void insertOrUpdateRow( TableRow newRow )
     {
         // TODO validate new row.
         // Write-locking is not required, as table cache should do it.
-        Map<String, Integer> columnIndices = this._cacheInfo.getTableInfo().getColumnIndices();
         for( String[] pkNames : this._permutations )
         {
             Map<Object, Object> map = (Map) this._contents;
@@ -242,7 +241,7 @@ public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
                     map.put( pkName, o );
                 }
 
-                Object value = newRow[columnIndices.get( pkName )];
+                Object value = newRow.get( pkName );
                 map = (Map<Object, Object>) o.get( value );
                 if( map == null )
                 {
@@ -258,7 +257,7 @@ public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
                 o = new HashMap<Object, Object>();
                 map.put( pkName, o );
             }
-            o.put( newRow[columnIndices.get( pkName )], newRow );
+            o.put( newRow.get( pkName ), newRow );
         }
     }
 

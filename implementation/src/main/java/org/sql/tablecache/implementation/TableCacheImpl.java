@@ -27,9 +27,6 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import math.permutations.PermutationGenerator;
-import math.permutations.PermutationGeneratorProvider;
-
 import org.qi4j.api.injection.scope.Service;
 import org.sql.generation.api.qi4j.SQLVendorService;
 import org.sql.generation.api.vendor.SQLVendor;
@@ -41,6 +38,7 @@ import org.sql.tablecache.api.TableIndexer;
 import org.sql.tablecache.api.TableIndexer.BroadTableIndexer;
 import org.sql.tablecache.api.TableIndexer.ThinTableIndexer;
 import org.sql.tablecache.api.TableInfo;
+import org.sql.tablecache.api.TableRow;
 
 public class TableCacheImpl
     implements TableCache
@@ -107,7 +105,13 @@ public class TableCacheImpl
     @Override
     public TableInfo getTableInfo( String schemaName, String tableName )
     {
-        return this.getCacheInfo( schemaName, tableName ).getTableInfo();
+        CacheInfo info = this.getCacheInfo( schemaName, tableName );
+        if( info == null )
+        {
+            throw new IllegalArgumentException( "No such table " + (schemaName == null ? "" : schemaName + ".")
+                + tableName + "." );
+        }
+        return info.getTableInfo();
     }
 
     @Override
@@ -155,26 +159,53 @@ public class TableCacheImpl
     }
 
     @Override
-    public void insertOrUpdateRow( String schemaName, String tableName, Object[] row )
+    public void insertOrUpdateRows( TableRow... rows )
     {
-        this.doInsertOrUpdateRow( this.getCacheInfo( schemaName, tableName ), row );
+        Map<String, Map<String, List<TableRow>>> sortedRows = new HashMap<String, Map<String, List<TableRow>>>();
+        for( TableRow row : rows )
+        {
+            TableInfo tableInfo = row.getTableInfo();
+            String schemaName = tableInfo.getSchemaName();
+            String tableName = tableInfo.getTableName();
+
+            Map<String, List<TableRow>> rowz = sortedRows.get( schemaName );
+            if( rowz == null )
+            {
+                rowz = new HashMap<String, List<TableRow>>();
+                sortedRows.put( schemaName, rowz );
+            }
+            List<TableRow> rowzz = rowz.get( tableName );
+            if( rowzz == null )
+            {
+                rowzz = new ArrayList<TableRow>();
+                rowz.put( tableName, rowzz );
+            }
+
+            rowzz.add( row );
+        }
+
+        for( Map.Entry<String, Map<String, List<TableRow>>> entry : sortedRows.entrySet() )
+        {
+            for( Map.Entry<String, List<TableRow>> entry2 : entry.getValue().entrySet() )
+            {
+                this.doInsertOrUpdateRows( entry.getKey(), entry2.getKey(), entry2.getValue() );
+            }
+        }
     }
 
-    @Override
-    public void insertOrUpdateRow( String tableName, Object[] row )
+    protected void doInsertOrUpdateRows( String schemaName, String tableName, List<TableRow> rows )
     {
-        this.doInsertOrUpdateRow( this.getCacheInfo( tableName ), row );
-    }
-
-    protected void doInsertOrUpdateRow( CacheInfo cacheInfo, Object[] row )
-    {
+        CacheInfo cacheInfo = this.getCacheInfo( schemaName, tableName );
         Lock lock = cacheInfo.getAccessLock().writeLock();
         lock.lock();
         try
         {
             for( TableIndexer indexer : cacheInfo.getAccessors().values() )
             {
-                ((AbstractTableIndexer) indexer).insertOrUpdateRow( row );
+                for( TableRow row : rows )
+                {
+                    ((AbstractTableIndexer) indexer).insertOrUpdateRow( row );
+                }
             }
         }
         finally
@@ -269,7 +300,7 @@ public class TableCacheImpl
             }
             PrimaryKeyInfo pkInfo = detector.getPrimaryKeys( connection, schemaName, tableName );
 
-            map.put( tableName, new CacheInfo( new TableInfoImpl( tableName, columnList, pkInfo ) ) );
+            map.put( tableName, new CacheInfo( new TableInfoImpl( schemaName, tableName, columnList, pkInfo ) ) );
         }
 
         this.loadContents( connection, schemaName, map );
@@ -317,18 +348,20 @@ public class TableCacheImpl
     }
 
     @Override
-    public Object[] createRow( ResultSet row, TableInfo tableInfo )
+    public TableRow createRow( ResultSet row, TableInfo tableInfo )
         throws SQLException
     {
         List<String> cols = tableInfo.getColumns();
         Object[] result = new Object[cols.size()];
-        // Populate row array in a order as specified by column name list 
+        // Populate row array in a order as specified by column name list
+        int idx = 0;
         for( String col : cols )
         {
-            result[cols.indexOf( col )] = row.getObject( col );
+            result[idx] = row.getObject( col );
+            ++idx;
         }
 
-        return result;
+        return new TableRowImpl( tableInfo, result );
     }
 
     protected void loadContents( Connection connection, String schemaName, Map<String, CacheInfo> cacheInfos )
@@ -368,7 +401,7 @@ public class TableCacheImpl
                 {
                     while( rs.next() )
                     {
-                        Object[] row = this.createRow( rs, tableInfo );
+                        TableRow row = this.createRow( rs, tableInfo );
 
                         // Further process the row (add it to cache)
                         if( useBroadIndexing )

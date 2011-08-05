@@ -18,18 +18,14 @@ public interface TableIndexer
 {
     public TableAccessor getRows();
 
-    public Object[] getRow( Object pk );
+    public TableRow getRow( Object pk );
 
     public Boolean hasRow( Object pk );
-
-    //    public void insertOrUpdateRow( Object pk, Object[] newRow );
 
     public interface BroadTableIndexer
         extends TableIndexer
     {
-        public Object[] getRow( String[] pkNames, Object[] pkValues );
-
-        //        public void insertRow( String[] pkNames, Object[] row );
+        public TableRow getRow( String[] pkNames, Object[] pkValues );
 
         public TableAccessor getRowsPartialPK( String[] pkNames, Object[] pkValues );
     }

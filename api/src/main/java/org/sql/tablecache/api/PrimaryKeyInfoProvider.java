@@ -28,7 +28,7 @@ public interface PrimaryKeyInfoProvider
 
         Boolean useThinIndexing();
 
-        Object createThinIndexingMultiKey( TableInfo tableInfo, Object[] row );
+        Object createThinIndexingMultiKey( TableInfo tableInfo, TableRow row );
     }
 
     public PrimaryKeyInfo getPrimaryKeys( Connection connection, String schemaName, String tableName )

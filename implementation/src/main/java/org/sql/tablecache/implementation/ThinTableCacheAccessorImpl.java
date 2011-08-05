@@ -21,7 +21,7 @@ import java.util.concurrent.locks.Lock;
 
 import org.sql.tablecache.api.TableAccessor;
 import org.sql.tablecache.api.TableIndexer.ThinTableIndexer;
-import org.sql.tablecache.api.TableInfo;
+import org.sql.tablecache.api.TableRow;
 import org.sql.tablecache.implementation.TableCacheImpl.CacheInfo;
 
 /**
@@ -36,20 +36,20 @@ public class ThinTableCacheAccessorImpl extends AbstractTableIndexer
         implements TableAccessor
     {
         private final CacheInfo _cacheInfo;
-        private final Map<Object, Object[]> _rows;
+        private final Map<Object, TableRow> _rows;
 
-        private ThinTableAccessor( CacheInfo cacheInfo, Map<Object, Object[]> rows )
+        private ThinTableAccessor( CacheInfo cacheInfo, Map<Object, TableRow> rows )
         {
             this._cacheInfo = cacheInfo;
             this._rows = rows;
         }
 
         @Override
-        public Iterator<Object[]> iterator()
+        public Iterator<TableRow> iterator()
         {
-            return new Iterator<Object[]>()
+            return new Iterator<TableRow>()
             {
-                private Iterator<Object[]> _actualIterator = _rows.values().iterator();
+                private Iterator<TableRow> _actualIterator = _rows.values().iterator();
 
                 @Override
                 public boolean hasNext()
@@ -67,7 +67,7 @@ public class ThinTableCacheAccessorImpl extends AbstractTableIndexer
                 }
 
                 @Override
-                public Object[] next()
+                public TableRow next()
                 {
                     Lock lock = _cacheInfo.getAccessLock().readLock();
                     lock.lock();
@@ -91,17 +91,17 @@ public class ThinTableCacheAccessorImpl extends AbstractTableIndexer
 
     }
 
-    private final Map<Object, Object[]> _rows;
+    private final Map<Object, TableRow> _rows;
     private final CacheInfo _cacheInfo;
 
     public ThinTableCacheAccessorImpl( CacheInfo cacheInfo )
     {
-        this._rows = new HashMap<Object, Object[]>();
+        this._rows = new HashMap<Object, TableRow>();
         this._cacheInfo = cacheInfo;
     }
 
     @Override
-    public Object[] getRow( Object pk )
+    public TableRow getRow( Object pk )
     {
         Lock lock = _cacheInfo.getAccessLock().readLock();
         lock.lock();
@@ -131,7 +131,7 @@ public class ThinTableCacheAccessorImpl extends AbstractTableIndexer
     }
 
     @Override
-    protected void insertOrUpdateRow( Object[] newRow )
+    protected void insertOrUpdateRow( TableRow newRow )
     {
         // TODO validate new row
         Object pk = this._cacheInfo.getTableInfo().createThinIndexPK( newRow );

@@ -50,7 +50,7 @@ public class JDBCMetaDataPrimaryKeyProvider
             }
 
             @Override
-            public Object createThinIndexingMultiKey( TableInfo tableInfo, Object[] row )
+            public Object createThinIndexingMultiKey( TableInfo tableInfo, TableRow row )
             {
                 return JDBCMetaDataPrimaryKeyProvider.this.createThinIndexingMultiKey( tableInfo, row );
             }
@@ -74,7 +74,7 @@ public class JDBCMetaDataPrimaryKeyProvider
         return true;
     }
 
-    protected Object createThinIndexingMultiKey( TableInfo tableInfo, Object[] row )
+    protected Object createThinIndexingMultiKey( TableInfo tableInfo, TableRow row )
     {
         return null;
     }

@@ -42,10 +42,12 @@ public interface TableInfo
 
     public String getTableName();
 
+    public String getSchemaName();
+
     public Boolean useBroadIndexing();
 
     public Boolean useThinIndexing();
 
-    public Object createThinIndexPK( Object[] row );
+    public Object createThinIndexPK( TableRow row );
 
 }

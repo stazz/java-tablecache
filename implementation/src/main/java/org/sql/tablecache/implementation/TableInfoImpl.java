@@ -12,7 +12,6 @@
  *
  */
 
-
 package org.sql.tablecache.implementation;
 
 import java.util.HashMap;
@@ -22,18 +21,21 @@ import java.util.Set;
 
 import org.sql.tablecache.api.PrimaryKeyInfoProvider.PrimaryKeyInfo;
 import org.sql.tablecache.api.TableInfo;
+import org.sql.tablecache.api.TableRow;
 
 public class TableInfoImpl
     implements TableInfo
 {
+    private final String _schemaName;
     private final String _tableName;
     private final List<String> _columns;
     private final Map<String, Integer> _columnIndices;
     private final Map<String, Integer> _pkIndices;
     private final PrimaryKeyInfo _pkInfo;
 
-    public TableInfoImpl( String tableName, List<String> columns, PrimaryKeyInfo pkInfo )
+    public TableInfoImpl( String schemaName, String tableName, List<String> columns, PrimaryKeyInfo pkInfo )
     {
+        this._schemaName = schemaName;
         this._tableName = tableName;
         this._columns = columns;
         this._pkInfo = pkInfo;
@@ -85,9 +87,15 @@ public class TableInfoImpl
     }
 
     @Override
-    public Object createThinIndexPK( Object[] row )
+    public Object createThinIndexPK( TableRow row )
     {
         return this._pkInfo.createThinIndexingMultiKey( this, row );
+    }
+
+    @Override
+    public String getSchemaName()
+    {
+        return this._schemaName;
     }
 
     @Override

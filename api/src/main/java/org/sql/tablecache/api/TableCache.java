@@ -63,14 +63,12 @@ public interface TableCache
         String... tableNames )
         throws SQLException;
 
-    public Object[] createRow( ResultSet row, TableInfo tableInfo )
-        throws SQLException;
-
     public void clearCache();
 
-    public void insertOrUpdateRow( String tableName, Object[] row );
+    public TableRow createRow( ResultSet row, TableInfo tableInfo )
+        throws SQLException;
 
-    public void insertOrUpdateRow( String schemaName, String tableName, Object[] row );
+    public void insertOrUpdateRows( TableRow... rows );
 
     public interface TableFilter
     {

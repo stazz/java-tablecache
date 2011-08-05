@@ -14,10 +14,8 @@
 
 package org.sql.tablecache.implementation;
 
-import java.util.Map;
-
 import org.sql.tablecache.api.TableIndexer;
-import org.sql.tablecache.api.TableInfo;
+import org.sql.tablecache.api.TableRow;
 
 /**
  * 
@@ -26,17 +24,5 @@ import org.sql.tablecache.api.TableInfo;
 public abstract class AbstractTableIndexer
     implements TableIndexer
 {
-    //    private final Map<String, Map<String, TableInfo>> _metaInfo;
-    //
-    //    public AbstractTableCacheAccessor( Map<String, Map<String, TableInfo>> metaInfo )
-    //    {
-    //        this._metaInfo = metaInfo;
-    //    }
-    //
-    //    protected Map<String, Map<String, TableInfo>> getMetaInfo()
-    //    {
-    //        return this._metaInfo;
-    //    }
-
-    protected abstract void insertOrUpdateRow( Object[] row );
+    protected abstract void insertOrUpdateRow( TableRow row );
 }
