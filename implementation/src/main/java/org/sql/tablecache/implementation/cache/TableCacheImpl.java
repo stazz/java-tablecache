@@ -12,7 +12,7 @@
  *
  */
 
-package org.sql.tablecache.implementation;
+package org.sql.tablecache.implementation.cache;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -21,8 +21,10 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -30,36 +32,42 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.qi4j.api.injection.scope.Service;
 import org.sql.generation.api.qi4j.SQLVendorService;
 import org.sql.generation.api.vendor.SQLVendor;
-import org.sql.tablecache.api.JDBCMetaDataPrimaryKeyProvider;
-import org.sql.tablecache.api.PrimaryKeyInfoProvider;
-import org.sql.tablecache.api.PrimaryKeyInfoProvider.PrimaryKeyInfo;
-import org.sql.tablecache.api.TableCache;
-import org.sql.tablecache.api.TableIndexer;
-import org.sql.tablecache.api.TableIndexer.BroadTableIndexer;
-import org.sql.tablecache.api.TableIndexer.ThinTableIndexer;
-import org.sql.tablecache.api.TableInfo;
-import org.sql.tablecache.api.TableRow;
+import org.sql.tablecache.api.cache.TableCache;
+import org.sql.tablecache.api.callbacks.IndexingInfoProvider;
+import org.sql.tablecache.api.callbacks.PrimaryKeyOverride;
+import org.sql.tablecache.api.callbacks.IndexingInfoProvider.DefaultIndexingInfoProvider;
+import org.sql.tablecache.api.index.IndexingInfo;
+import org.sql.tablecache.api.index.IndexingInfo.BroadIndexingInfo;
+import org.sql.tablecache.api.index.IndexingInfo.ThinIndexingInfo;
+import org.sql.tablecache.api.index.TableIndexer;
+import org.sql.tablecache.api.table.TableInfo;
+import org.sql.tablecache.api.table.TableRow;
+import org.sql.tablecache.implementation.index.AbstractTableIndexer;
+import org.sql.tablecache.implementation.index.BroadTableIndexerImpl;
+import org.sql.tablecache.implementation.index.ThinTableIndexerImpl;
+import org.sql.tablecache.implementation.table.TableInfoImpl;
+import org.sql.tablecache.implementation.table.TableRowImpl;
 
 public class TableCacheImpl
     implements TableCache
 {
 
-    protected static class CacheInfo
+    public static class CacheInfo
     {
         private final TableInfo _tableInfo;
-        private final Map<Class<?>, TableIndexer> _accessors;
+        private final Map<String, TableIndexer> _indexers;
         private final ReadWriteLock _accessLock;
 
         private CacheInfo( TableInfo tableInfo )
         {
             this._tableInfo = tableInfo;
-            this._accessors = new HashMap<Class<?>, TableIndexer>();
             this._accessLock = new ReentrantReadWriteLock();
+            this._indexers = new HashMap<String, TableIndexer>();
         }
 
-        public Map<Class<?>, TableIndexer> getAccessors()
+        public Map<String, TableIndexer> getIndexers()
         {
-            return this._accessors;
+            return this._indexers;
         }
 
         public TableInfo getTableInfo()
@@ -121,29 +129,43 @@ public class TableCacheImpl
     }
 
     @Override
-    public <AccessorType extends TableIndexer> AccessorType getIndexer( Class<AccessorType> accessorClass,
+    public <AccessorType extends TableIndexer> AccessorType getDefaultIndexer( Class<AccessorType> accessorClass,
         String schemaName, String tableName )
     {
-        return accessorClass.cast( this.getCacheInfo( schemaName, tableName ).getAccessors().get( accessorClass ) );
+        return accessorClass.cast( this.getCacheInfo( schemaName, tableName ).getIndexers().get( null ) );
+    }
+
+    @Override
+    public <AccessorType extends TableIndexer> AccessorType getDefaultIndexer( Class<AccessorType> accessorClass,
+        String tableName )
+    {
+        return accessorClass.cast( this.getCacheInfo( tableName ).getIndexers().get( null ) );
     }
 
     @Override
     public <AccessorType extends TableIndexer> AccessorType getIndexer( Class<AccessorType> accessorClass,
-        String tableName )
+        String schemaName, String tableName, String indexName )
     {
-        return accessorClass.cast( this.getCacheInfo( tableName ).getAccessors().get( accessorClass ) );
+        return accessorClass.cast( this.getCacheInfo( schemaName, tableName ).getIndexers().get( indexName ) );
+    }
+
+    @Override
+    public <AccessorType extends TableIndexer> AccessorType getIndexer( Class<AccessorType> accessorClass,
+        String tableName, String indexName )
+    {
+        return accessorClass.cast( this.getCacheInfo( tableName ).getIndexers().get( indexName ) );
     }
 
     @Override
     public TableIndexer getIndexer( String schemaName, String tableName )
     {
-        return this.getCacheInfo( schemaName, tableName ).getAccessors().values().iterator().next();
+        return this.getCacheInfo( schemaName, tableName ).getIndexers().values().iterator().next();
     }
 
     @Override
     public TableIndexer getIndexer( String tableName )
     {
-        return this.getCacheInfo( tableName ).getAccessors().values().iterator().next();
+        return this.getCacheInfo( tableName ).getIndexers().values().iterator().next();
     }
 
     @Override
@@ -200,7 +222,7 @@ public class TableCacheImpl
         lock.lock();
         try
         {
-            for( TableIndexer indexer : cacheInfo.getAccessors().values() )
+            for( TableIndexer indexer : cacheInfo.getIndexers().values() )
             {
                 for( TableRow row : rows )
                 {
@@ -230,55 +252,35 @@ public class TableCacheImpl
     public void buildCache( Connection connection, String schemaName, TableFilter tableFilter )
         throws SQLException
     {
-        this.buildCache( connection, schemaName, tableFilter, new JDBCMetaDataPrimaryKeyProvider() );
+        this.buildCache( connection, schemaName, tableFilter, DefaultIndexingInfoProvider.INSTANCE );
     }
 
     @Override
     public void buildCache( Connection connection, String schemaName, TableFilter tableFilter,
-        PrimaryKeyInfoProvider detector )
+        IndexingInfoProvider provider )
         throws SQLException
     {
-        List<String> tables = new ArrayList<String>();
-
-        ResultSet rs = connection.getMetaData().getTables( null, schemaName, null, new String[]
-        {
-            "TABLE"
-        } );
-        try
-        {
-            while( rs.next() )
-            {
-                String tableName = rs.getString( "TABLE_NAME" );
-                if( tableFilter == null || tableFilter.includeTable( schemaName, tableName ) )
-                {
-                    tables.add( tableName );
-                }
-            }
-        }
-        finally
-        {
-            rs.close();
-        }
-
-        this.buildCache( connection, schemaName, detector, tables.toArray( new String[tables.size()] ) );
+        this.buildCache( connection, schemaName, tableFilter, provider, (PrimaryKeyOverride) null );
     }
 
     @Override
     public void buildCache( Connection connection, String schemaName, String... tableNames )
         throws SQLException
     {
-        this.buildCache( connection, schemaName, new JDBCMetaDataPrimaryKeyProvider(), tableNames );
+        this.buildCache( connection, schemaName, DefaultIndexingInfoProvider.INSTANCE, tableNames );
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.trinity.db.runtime.metameta.TableCachingService#buildCache(java.sql.Connection, java.lang.String,
-     * org.trinity.db.runtime.metameta.TableCachingService.PrimaryKeyDetector, java.lang.String[])
-     */
     @Override
-    public void buildCache( Connection connection, String schemaName, PrimaryKeyInfoProvider detector,
+    public void buildCache( Connection connection, String schemaName, IndexingInfoProvider indexingInfo,
         String... tableNames )
+        throws SQLException
+    {
+        this.buildCache( connection, schemaName, indexingInfo, null, tableNames );
+    }
+
+    @Override
+    public void buildCache( Connection connection, String schemaName, IndexingInfoProvider indexingInfoProvider,
+        PrimaryKeyOverride pkOverride, String... tableNames )
         throws SQLException
     {
         Map<String, CacheInfo> map = new HashMap<String, CacheInfo>();
@@ -298,12 +300,36 @@ public class TableCacheImpl
             {
                 cols.close();
             }
-            PrimaryKeyInfo pkInfo = detector.getPrimaryKeys( connection, schemaName, tableName );
 
-            map.put( tableName, new CacheInfo( new TableInfoImpl( schemaName, tableName, columnList, pkInfo ) ) );
+            Set<String> pks = null;
+            if( pkOverride != null )
+            {
+                pks = pkOverride.getPrimaryKeys( schemaName, tableName );
+                if( pks != null && pks.isEmpty() )
+                {
+                    pks = null;
+                }
+            }
+            if( pks == null )
+            {
+                pks = new HashSet<String>();
+                cols = connection.getMetaData().getPrimaryKeys( null, schemaName, tableName );
+                try
+                {
+                    while( cols.next() )
+                    {
+                        pks.add( cols.getString( "COLUMN_NAME" ).toLowerCase() );
+                    }
+                }
+                finally
+                {
+                    cols.close();
+                }
+            }
+            map.put( tableName, new CacheInfo( new TableInfoImpl( schemaName, tableName, columnList, pks ) ) );
         }
 
-        this.loadContents( connection, schemaName, map );
+        this.loadContents( connection, schemaName, map, indexingInfoProvider );
 
         synchronized( this._cacheLoadingLock )
         {
@@ -331,6 +357,37 @@ public class TableCacheImpl
                 }
             }
         }
+    }
+
+    @Override
+    public void buildCache( Connection connection, String schemaName, TableFilter tableFilter,
+        IndexingInfoProvider indexingInfoProvider, PrimaryKeyOverride pkOverride )
+        throws SQLException
+    {
+        List<String> tables = new ArrayList<String>();
+
+        ResultSet rs = connection.getMetaData().getTables( null, schemaName, null, new String[]
+        {
+            "TABLE"
+        } );
+        try
+        {
+            while( rs.next() )
+            {
+                String tableName = rs.getString( "TABLE_NAME" );
+                if( tableFilter == null || tableFilter.includeTable( schemaName, tableName ) )
+                {
+                    tables.add( tableName );
+                }
+            }
+        }
+        finally
+        {
+            rs.close();
+        }
+
+        this.buildCache( connection, schemaName, indexingInfoProvider, pkOverride,
+            tables.toArray( new String[tables.size()] ) );
     }
 
     /*
@@ -364,7 +421,8 @@ public class TableCacheImpl
         return new TableRowImpl( tableInfo, result );
     }
 
-    protected void loadContents( Connection connection, String schemaName, Map<String, CacheInfo> cacheInfos )
+    protected void loadContents( Connection connection, String schemaName, Map<String, CacheInfo> cacheInfos,
+        IndexingInfoProvider indexingInfo )
         throws SQLException
     {
         Statement stmt = connection.createStatement();
@@ -375,25 +433,23 @@ public class TableCacheImpl
                 CacheInfo cacheInfo = cacheInfos.get( table );
                 TableInfo tableInfo = cacheInfo.getTableInfo();
                 List<String> cols = tableInfo.getColumns();
-                Map<Class<?>, TableIndexer> tableAccessors = cacheInfo.getAccessors();
+                Map<String, IndexingInfo> indexInfo = indexingInfo.getIndexingInfo( tableInfo );
+                Map<String, TableIndexer> indexers = cacheInfo.getIndexers();
 
-                Boolean useBroadIndexing = tableInfo.useBroadIndexing();
-                Boolean useThinIndexing = tableInfo.useThinIndexing();
-
-                // For broad indexing
-                BroadTableCacheAccessorImpl broadCache = null;
-                if( useBroadIndexing )
+                for( Map.Entry<String, IndexingInfo> indexInfoEntry : indexInfo.entrySet() )
                 {
-                    broadCache = new BroadTableCacheAccessorImpl( cacheInfo );
-                    tableAccessors.put( BroadTableIndexer.class, broadCache );
-                }
-
-                // For thin indexing
-                ThinTableCacheAccessorImpl thinCache = null;
-                if( useThinIndexing )
-                {
-                    thinCache = new ThinTableCacheAccessorImpl( cacheInfo );
-                    tableAccessors.put( ThinTableIndexer.class, thinCache );
+                    String indexName = indexInfoEntry.getKey();
+                    IndexingInfo idxInfo = indexInfoEntry.getValue();
+                    switch( idxInfo.getIndexType() ) {
+                    case BROAD:
+                        indexers.put( indexName,
+                            new BroadTableIndexerImpl( cacheInfo, ((BroadIndexingInfo) idxInfo).getIndexingColumns() ) );
+                        break;
+                    case THIN:
+                        indexers.put( indexName,
+                            new ThinTableIndexerImpl( cacheInfo, ((ThinIndexingInfo) idxInfo).getPkProvider() ) );
+                        break;
+                    }
                 }
 
                 ResultSet rs = stmt.executeQuery( this.getQueryForAllRows( schemaName, table, cols ) );
@@ -402,15 +458,9 @@ public class TableCacheImpl
                     while( rs.next() )
                     {
                         TableRow row = this.createRow( rs, tableInfo );
-
-                        // Further process the row (add it to cache)
-                        if( useBroadIndexing )
+                        for( Map.Entry<String, TableIndexer> entry : indexers.entrySet() )
                         {
-                            broadCache.insertOrUpdateRow( row );
-                        }
-                        if( useThinIndexing )
-                        {
-                            thinCache.insertOrUpdateRow( row );
+                            ((AbstractTableIndexer) entry.getValue()).insertOrUpdateRow( row );
                         }
                     }
                 }

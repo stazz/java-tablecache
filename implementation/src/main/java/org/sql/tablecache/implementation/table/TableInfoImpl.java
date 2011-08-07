@@ -12,16 +12,15 @@
  *
  */
 
-package org.sql.tablecache.implementation;
+package org.sql.tablecache.implementation.table;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.sql.tablecache.api.PrimaryKeyInfoProvider.PrimaryKeyInfo;
-import org.sql.tablecache.api.TableInfo;
-import org.sql.tablecache.api.TableRow;
+import org.sql.tablecache.api.table.TableInfo;
 
 public class TableInfoImpl
     implements TableInfo
@@ -30,36 +29,28 @@ public class TableInfoImpl
     private final String _tableName;
     private final List<String> _columns;
     private final Map<String, Integer> _columnIndices;
-    private final Map<String, Integer> _pkIndices;
-    private final PrimaryKeyInfo _pkInfo;
+    private final Set<String> _pkColumns;
 
-    public TableInfoImpl( String schemaName, String tableName, List<String> columns, PrimaryKeyInfo pkInfo )
+    public TableInfoImpl( String schemaName, String tableName, List<String> columns, Set<String> pkColumns )
     {
         this._schemaName = schemaName;
         this._tableName = tableName;
-        this._columns = columns;
-        this._pkInfo = pkInfo;
-        this._columnIndices = new HashMap<String, Integer>();
-        Set<String> pkColumns = this._pkInfo.getKeyNames();
-        this._pkIndices = new HashMap<String, Integer>( pkColumns.size() );
-        Integer pkIdx = 0;
+        this._columns = Collections.unmodifiableList( columns );
+        Map<String, Integer> columnIndices = new HashMap<String, Integer>();
+        this._pkColumns = Collections.unmodifiableSet( pkColumns );
         for( Integer idx = 0; idx < columns.size(); ++idx )
         {
             String col = columns.get( idx );
-            if( !this._columnIndices.containsKey( col ) )
+            if( !columnIndices.containsKey( col ) )
             {
-                this._columnIndices.put( col, idx );
-                if( pkColumns.contains( col ) )
-                {
-                    this._pkIndices.put( col, pkIdx );
-                    ++pkIdx;
-                }
+                columnIndices.put( col, idx );
             }
             else
             {
                 throw new IllegalArgumentException( "Duplicate column name: " + col + "." );
             }
         }
+        this._columnIndices = Collections.unmodifiableMap( columnIndices );
     }
 
     @Override
@@ -71,25 +62,13 @@ public class TableInfoImpl
     @Override
     public Set<String> getPkColumns()
     {
-        return this._pkInfo.getKeyNames();
-    }
-
-    @Override
-    public Map<String, Integer> getPkIndices()
-    {
-        return this._pkIndices;
+        return this._pkColumns;
     }
 
     @Override
     public List<String> getColumns()
     {
         return this._columns;
-    }
-
-    @Override
-    public Object createThinIndexPK( TableRow row )
-    {
-        return this._pkInfo.createThinIndexingMultiKey( this, row );
     }
 
     @Override
@@ -104,15 +83,4 @@ public class TableInfoImpl
         return this._tableName;
     }
 
-    @Override
-    public Boolean useBroadIndexing()
-    {
-        return this._pkInfo.useBroadIndexing();
-    }
-
-    @Override
-    public Boolean useThinIndexing()
-    {
-        return this._pkInfo.useThinIndexing();
-    }
 }

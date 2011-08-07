@@ -12,7 +12,7 @@
  *
  */
 
-package org.sql.tablecache.implementation;
+package org.sql.tablecache.implementation.cache;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -22,8 +22,8 @@ import org.qi4j.api.mixin.Mixins;
 import org.qi4j.api.object.ObjectBuilderFactory;
 import org.qi4j.api.service.Activatable;
 import org.qi4j.api.service.ServiceComposite;
-import org.sql.tablecache.api.TableCache;
-import org.sql.tablecache.api.TableCachingService;
+import org.sql.tablecache.api.cache.TableCache;
+import org.sql.tablecache.api.cache.TableCachingService;
 
 @Mixins(
 {

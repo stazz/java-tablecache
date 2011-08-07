@@ -12,12 +12,13 @@
  *
  */
 
-package org.sql.tablecache.implementation;
+package org.sql.tablecache.implementation.index;
 
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -26,12 +27,12 @@ import java.util.concurrent.locks.Lock;
 import math.permutations.PermutationGenerator;
 import math.permutations.PermutationGeneratorProvider;
 
-import org.sql.tablecache.api.TableAccessor;
-import org.sql.tablecache.api.TableIndexer.BroadTableIndexer;
-import org.sql.tablecache.api.TableRow;
-import org.sql.tablecache.implementation.TableCacheImpl.CacheInfo;
+import org.sql.tablecache.api.index.BroadTableIndexer;
+import org.sql.tablecache.api.table.TableAccessor;
+import org.sql.tablecache.api.table.TableRow;
+import org.sql.tablecache.implementation.cache.TableCacheImpl.CacheInfo;
 
-public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
+public class BroadTableIndexerImpl extends AbstractTableIndexer
     implements BroadTableIndexer
 {
     private static class TableAccessorImpl
@@ -48,16 +49,16 @@ public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
         };
 
         private final CacheInfo _cacheInfo;
-        private final Map<Object, Object> _pkIndex;
+        private final Map<Object, Object> _index;
         private final int _decidedPKs;
         private final int _maxPKs;
 
-        public TableAccessorImpl( CacheInfo cacheInfo, Map<Object, Object> pkIndex, int decidedPKs )
+        public TableAccessorImpl( CacheInfo cacheInfo, Map<Object, Object> pkIndex, int decidedPKs, int maxPKs )
         {
             this._cacheInfo = cacheInfo;
-            this._pkIndex = pkIndex;
+            this._index = pkIndex;
             this._decidedPKs = decidedPKs;
-            this._maxPKs = cacheInfo.getTableInfo().getPkColumns().size();
+            this._maxPKs = maxPKs;
         }
 
         @Override
@@ -69,13 +70,13 @@ public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
                 private final int _dequeDepth = _maxPKs - _decidedPKs;
 
                 {
-                    if( _pkIndex == null || _pkIndex.isEmpty() )
+                    if( _index == null || _index.isEmpty() )
                     {
                         this._iters.push( Collections.EMPTY_MAP.values().iterator() );
                     }
                     else
                     {
-                        this._iters.push( _pkIndex.values().iterator() );
+                        this._iters.push( _index.values().iterator() );
                     }
                     Lock lock = _cacheInfo.getAccessLock().readLock();
                     lock.lock();
@@ -163,29 +164,43 @@ public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
     private final Map<String, Map<Object, Object>> _contents;
     private final CacheInfo _cacheInfo;
     private final PermutationGenerator<String[]> _permutations;
+    private final Set<String> _indexingColumnNames;
 
-    public BroadTableCacheAccessorImpl( CacheInfo cacheInfo )
+    public BroadTableIndexerImpl( CacheInfo cacheInfo )
+    {
+        this( cacheInfo, null );
+    }
+
+    public BroadTableIndexerImpl( CacheInfo cacheInfo, Set<String> columnNames )
     {
         this._cacheInfo = cacheInfo;
         this._contents = new HashMap<String, Map<Object, Object>>();
+        this._indexingColumnNames = columnNames == null ? Collections.unmodifiableSet( cacheInfo.getTableInfo()
+            .getPkColumns() ) : Collections.unmodifiableSet( new HashSet<String>( columnNames ) );
         this._permutations = PermutationGeneratorProvider.createGenericComparablePermutationGenerator( String.class,
-            this._cacheInfo.getTableInfo().getPkColumns() );
+            this._indexingColumnNames );
+    }
+
+    public Set<String> getIndexingColumnNames()
+    {
+        return this._indexingColumnNames;
     }
 
     @Override
-    public TableRow getRow( String[] pkNames, Object[] pkValues )
+    public TableRow getRow( String[] indexingColumnNames, Object[] indexingColumnValues )
     {
         Lock lock = this._cacheInfo.getAccessLock().readLock();
         lock.lock();
         try
         {
-            Map<Object, Object> current = this._contents.get( pkNames[0] );
-            for( int idx = 1; idx < pkNames.length; ++idx )
+            Map<Object, Object> current = this._contents.get( indexingColumnNames[0] );
+            for( int idx = 1; idx < indexingColumnNames.length; ++idx )
             {
-                current = ((Map<String, Map<Object, Object>>) current.get( pkValues[idx - 1] )).get( pkNames[idx] );
+                current = ((Map<String, Map<Object, Object>>) current.get( indexingColumnValues[idx - 1] ))
+                    .get( indexingColumnNames[idx] );
             }
 
-            return (TableRow) current.get( pkValues[pkValues.length - 1] );
+            return (TableRow) current.get( indexingColumnValues[indexingColumnValues.length - 1] );
         }
         finally
         {
@@ -224,9 +239,8 @@ public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
     }
 
     @Override
-    protected void insertOrUpdateRow( TableRow newRow )
+    public void insertOrUpdateRow( TableRow newRow )
     {
-        // TODO validate new row.
         // Write-locking is not required, as table cache should do it.
         for( String[] pkNames : this._permutations )
         {
@@ -264,25 +278,25 @@ public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
     @Override
     public TableAccessor getRows()
     {
-        return new TableAccessorImpl( this._cacheInfo, this._contents.values().iterator().next(), 0 );
+        return new TableAccessorImpl( this._cacheInfo, this._contents.values().iterator().next(), 0,
+            this._indexingColumnNames.size() );
     }
 
     @Override
-    public TableAccessor getRowsPartialPK( String[] pkNames, Object[] pkValues )
+    public TableAccessor getRowsPartialPK( String[] indexingColumnNames, Object[] indexingColumnValues )
     {
         Lock lock = this._cacheInfo.getAccessLock().readLock();
         lock.lock();
         try
         {
-            Set<String> pkNamesSet = this._cacheInfo.getTableInfo().getPkColumns();
-            Map<Object, Object> current = this._contents.get( pkNames[0] );
-            for( int idx = 1; idx < pkNames.length; ++idx )
+            Map<Object, Object> current = this._contents.get( indexingColumnNames[0] );
+            for( int idx = 1; idx < indexingColumnNames.length; ++idx )
             {
                 Map<String, Map<Object, Object>> mapz = (Map<String, Map<Object, Object>>) current
-                    .get( pkValues[idx - 1] );
+                    .get( indexingColumnValues[idx - 1] );
                 if( mapz != null )
                 {
-                    current = mapz.get( pkNames[idx] );
+                    current = mapz.get( indexingColumnNames[idx] );
                 }
                 else
                 {
@@ -293,7 +307,8 @@ public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
             TableAccessor result = null;
             if( current != null )
             {
-                Map<Object, Object> mapz = (Map<Object, Object>) current.get( pkValues[pkValues.length - 1] );
+                Map<Object, Object> mapz = (Map<Object, Object>) current
+                    .get( indexingColumnValues[indexingColumnValues.length - 1] );
                 if( mapz == null )
                 {
                     result = TableAccessorImpl.EMPTY;
@@ -301,7 +316,7 @@ public class BroadTableCacheAccessorImpl extends AbstractTableIndexer
                 else
                 {
                     result = new TableAccessorImpl( this._cacheInfo, (Map<Object, Object>) (mapz).values().iterator()
-                        .next(), pkNames.length );
+                        .next(), indexingColumnNames.length, this._indexingColumnNames.size() );
                 }
             }
             else

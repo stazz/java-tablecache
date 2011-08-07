@@ -12,27 +12,20 @@
  *
  */
 
-package org.sql.tablecache.api;
 
-public interface TableIndexer
+package org.sql.tablecache.api.index;
+
+import java.util.Set;
+
+import org.sql.tablecache.api.table.TableAccessor;
+import org.sql.tablecache.api.table.TableRow;
+
+public interface BroadTableIndexer
+    extends TableIndexer
 {
-    public TableAccessor getRows();
+    public TableRow getRow( String[] indexingColumnNames, Object[] indexingColumnValues );
 
-    public TableRow getRow( Object pk );
+    public TableAccessor getRowsPartialPK( String[] indexingColumnNames, Object[] indexingColumnValues );
 
-    public Boolean hasRow( Object pk );
-
-    public interface BroadTableIndexer
-        extends TableIndexer
-    {
-        public TableRow getRow( String[] pkNames, Object[] pkValues );
-
-        public TableAccessor getRowsPartialPK( String[] pkNames, Object[] pkValues );
-    }
-
-    public interface ThinTableIndexer
-        extends TableIndexer
-    {
-
-    }
+    public Set<String> getIndexingColumnNames();
 }

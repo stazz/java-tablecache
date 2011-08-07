@@ -12,25 +12,15 @@
  *
  */
 
-package org.sql.tablecache.implementation;
+package org.sql.tablecache.api.callbacks;
 
-import org.qi4j.bootstrap.Assembler;
-import org.qi4j.bootstrap.AssemblyException;
-import org.qi4j.bootstrap.ModuleAssembly;
+import org.sql.tablecache.api.table.TableRow;
 
 /**
  * 
  * @author 2011 Stanislav Muhametsin
  */
-public class TableCacheAssembler
-    implements Assembler
+public interface ThinIndexingPKProvider
 {
-
-    @Override
-    public void assemble( ModuleAssembly module )
-        throws AssemblyException
-    {
-        module.services( TableCachingServiceComposite.class );
-        module.objects( TableCacheImpl.class );
-    }
+    public Object createThinIndexingKey( TableRow row );
 }

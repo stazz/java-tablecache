@@ -12,25 +12,17 @@
  *
  */
 
-package org.sql.tablecache.api;
+package org.sql.tablecache.implementation.index;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.Set;
+import org.sql.tablecache.api.index.TableIndexer;
+import org.sql.tablecache.api.table.TableRow;
 
-public interface PrimaryKeyInfoProvider
+/**
+ * 
+ * @author 2011 Stanislav Muhametsin
+ */
+public abstract class AbstractTableIndexer
+    implements TableIndexer
 {
-    public interface PrimaryKeyInfo
-    {
-        Set<String> getKeyNames();
-
-        Boolean useBroadIndexing();
-
-        Boolean useThinIndexing();
-
-        Object createThinIndexingMultiKey( TableInfo tableInfo, TableRow row );
-    }
-
-    public PrimaryKeyInfo getPrimaryKeys( Connection connection, String schemaName, String tableName )
-        throws SQLException;
+    public abstract void insertOrUpdateRow( TableRow row );
 }

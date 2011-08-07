@@ -12,7 +12,7 @@
  *
  */
 
-package org.sql.tablecache.api;
+package org.sql.tablecache.api.table;
 
 import java.util.List;
 import java.util.Map;
@@ -29,8 +29,6 @@ public interface TableInfo
 
     public Set<String> getPkColumns();
 
-    public Map<String, Integer> getPkIndices();
-
     /**
      * Returns the names of all the columns of this table. It is guaranteed that this list will be essentially a set.
      * Additionally, for all column names, the value for the column is at same index in row, as it is in the column list
@@ -43,11 +41,5 @@ public interface TableInfo
     public String getTableName();
 
     public String getSchemaName();
-
-    public Boolean useBroadIndexing();
-
-    public Boolean useThinIndexing();
-
-    public Object createThinIndexPK( TableRow row );
 
 }

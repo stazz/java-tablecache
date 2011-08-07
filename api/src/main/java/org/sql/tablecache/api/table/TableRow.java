@@ -12,10 +12,22 @@
  *
  */
 
-package org.sql.tablecache.api;
+package org.sql.tablecache.api.table;
 
-public interface TableAccessor
-    extends Iterable<TableRow>
+/**
+ * 
+ * @author 2011 Stanislav Muhametsin
+ */
+public interface TableRow
 {
 
+    public Object get( int index );
+
+    public Object get( String columnName );
+
+    public <T> T get( Class<T> clazz, int index );
+
+    public <T> T get( Class<T> clazz, String columnName );
+
+    public TableInfo getTableInfo();
 }

@@ -12,17 +12,27 @@
  *
  */
 
-package org.sql.tablecache.implementation;
+package org.sql.tablecache.implementation.bootstrap;
 
-import org.sql.tablecache.api.TableIndexer;
-import org.sql.tablecache.api.TableRow;
+import org.qi4j.bootstrap.Assembler;
+import org.qi4j.bootstrap.AssemblyException;
+import org.qi4j.bootstrap.ModuleAssembly;
+import org.sql.tablecache.implementation.cache.TableCacheImpl;
+import org.sql.tablecache.implementation.cache.TableCachingServiceComposite;
 
 /**
  * 
  * @author 2011 Stanislav Muhametsin
  */
-public abstract class AbstractTableIndexer
-    implements TableIndexer
+public class TableCacheAssembler
+    implements Assembler
 {
-    protected abstract void insertOrUpdateRow( TableRow row );
+
+    @Override
+    public void assemble( ModuleAssembly module )
+        throws AssemblyException
+    {
+        module.services( TableCachingServiceComposite.class );
+        module.objects( TableCacheImpl.class );
+    }
 }

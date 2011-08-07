@@ -12,12 +12,12 @@
  *
  */
 
-package org.sql.tablecache.implementation;
+package org.sql.tablecache.implementation.table;
 
 import java.util.Arrays;
 
-import org.sql.tablecache.api.TableInfo;
-import org.sql.tablecache.api.TableRow;
+import org.sql.tablecache.api.table.TableInfo;
+import org.sql.tablecache.api.table.TableRow;
 
 /**
  * 

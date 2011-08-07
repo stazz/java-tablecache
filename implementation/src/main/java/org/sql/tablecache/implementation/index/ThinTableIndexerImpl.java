@@ -12,23 +12,24 @@
  *
  */
 
-package org.sql.tablecache.implementation;
+package org.sql.tablecache.implementation.index;
 
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
 
-import org.sql.tablecache.api.TableAccessor;
-import org.sql.tablecache.api.TableIndexer.ThinTableIndexer;
-import org.sql.tablecache.api.TableRow;
-import org.sql.tablecache.implementation.TableCacheImpl.CacheInfo;
+import org.sql.tablecache.api.callbacks.ThinIndexingPKProvider;
+import org.sql.tablecache.api.index.ThinTableIndexer;
+import org.sql.tablecache.api.table.TableAccessor;
+import org.sql.tablecache.api.table.TableRow;
+import org.sql.tablecache.implementation.cache.TableCacheImpl.CacheInfo;
 
 /**
  * 
  * @author 2011 Stanislav Muhametsin
  */
-public class ThinTableCacheAccessorImpl extends AbstractTableIndexer
+public class ThinTableIndexerImpl extends AbstractTableIndexer
     implements ThinTableIndexer
 {
 
@@ -93,11 +94,13 @@ public class ThinTableCacheAccessorImpl extends AbstractTableIndexer
 
     private final Map<Object, TableRow> _rows;
     private final CacheInfo _cacheInfo;
+    private final ThinIndexingPKProvider _pkProvider;
 
-    public ThinTableCacheAccessorImpl( CacheInfo cacheInfo )
+    public ThinTableIndexerImpl( CacheInfo cacheInfo, ThinIndexingPKProvider provider )
     {
         this._rows = new HashMap<Object, TableRow>();
         this._cacheInfo = cacheInfo;
+        this._pkProvider = provider;
     }
 
     @Override
@@ -131,10 +134,9 @@ public class ThinTableCacheAccessorImpl extends AbstractTableIndexer
     }
 
     @Override
-    protected void insertOrUpdateRow( TableRow newRow )
+    public void insertOrUpdateRow( TableRow newRow )
     {
-        // TODO validate new row
-        Object pk = this._cacheInfo.getTableInfo().createThinIndexPK( newRow );
+        Object pk = this._pkProvider.createThinIndexingKey( newRow );
         // Write-locking is not required as the table cache should do it
         this._rows.put( pk, newRow );
     }

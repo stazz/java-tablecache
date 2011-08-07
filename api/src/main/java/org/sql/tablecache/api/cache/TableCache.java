@@ -12,7 +12,7 @@
  *
  */
 
-package org.sql.tablecache.api;
+package org.sql.tablecache.api.cache;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -20,6 +20,11 @@ import java.sql.SQLException;
 import java.util.concurrent.locks.ReadWriteLock;
 
 import org.qi4j.api.common.Optional;
+import org.sql.tablecache.api.callbacks.IndexingInfoProvider;
+import org.sql.tablecache.api.callbacks.PrimaryKeyOverride;
+import org.sql.tablecache.api.index.TableIndexer;
+import org.sql.tablecache.api.table.TableInfo;
+import org.sql.tablecache.api.table.TableRow;
 
 /**
  * 
@@ -40,11 +45,17 @@ public interface TableCache
 
     public TableIndexer getIndexer( String schemaName, String tableName );
 
-    public <AccessorType extends TableIndexer> AccessorType getIndexer( Class<AccessorType> accessorClass,
+    public <AccessorType extends TableIndexer> AccessorType getDefaultIndexer( Class<AccessorType> accessorClass,
         String tableName );
 
-    public <AccessorType extends TableIndexer> AccessorType getIndexer( Class<AccessorType> accessorClass,
+    public <AccessorType extends TableIndexer> AccessorType getDefaultIndexer( Class<AccessorType> accessorClass,
         String schemaName, String tableName );
+
+    public <AccessorType extends TableIndexer> AccessorType getIndexer( Class<AccessorType> accessorClass,
+        String tableName, String indexName );
+
+    public <AccessorType extends TableIndexer> AccessorType getIndexer( Class<AccessorType> accessorClass,
+        String schemaName, String tableName, @Optional String indexName );
 
     public void buildCache( Connection connection, String schemaName )
         throws SQLException;
@@ -53,14 +64,22 @@ public interface TableCache
         throws SQLException;
 
     public void buildCache( Connection connection, String schemaName, @Optional TableFilter tableFilter,
-        PrimaryKeyInfoProvider detector )
+        IndexingInfoProvider indexingInfoProvider )
+        throws SQLException;
+
+    public void buildCache( Connection connection, String schemaName, @Optional TableFilter tableFilter,
+        IndexingInfoProvider indexingInfoProvider, @Optional PrimaryKeyOverride pkOverride )
         throws SQLException;
 
     public void buildCache( Connection connection, String schemaName, String... tableNames )
         throws SQLException;
 
-    public void buildCache( Connection connection, String schemaName, PrimaryKeyInfoProvider detector,
+    public void buildCache( Connection connection, String schemaName, IndexingInfoProvider indexingInfoProvider,
         String... tableNames )
+        throws SQLException;
+
+    public void buildCache( Connection connection, String schemaName, IndexingInfoProvider indexingInfoProvider,
+        @Optional PrimaryKeyOverride pkOverride, String... tableNames )
         throws SQLException;
 
     public void clearCache();

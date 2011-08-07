@@ -11,7 +11,7 @@
  * limitations under the License.
  *
  */
-package org.sql.tablecache.api;
+package org.sql.tablecache.api.cache;
 
 /**
  * The service to cache SQL tables located in some database. Each {@link TableCache} can cache one or more tables. This

@@ -12,22 +12,11 @@
  *
  */
 
-package org.sql.tablecache.api;
 
-/**
- * 
- * @author 2011 Stanislav Muhametsin
- */
-public interface TableRow
+package org.sql.tablecache.api.index;
+
+public interface ThinTableIndexer
+    extends TableIndexer
 {
 
-    public Object get( int index );
-
-    public Object get( String columnName );
-
-    public <T> T get( Class<T> clazz, int index );
-
-    public <T> T get( Class<T> clazz, String columnName );
-
-    public TableInfo getTableInfo();
 }
