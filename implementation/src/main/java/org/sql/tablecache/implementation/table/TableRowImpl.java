@@ -16,6 +16,7 @@ package org.sql.tablecache.implementation.table;
 
 import java.util.Arrays;
 
+import org.sql.tablecache.api.table.NoSuchNamedColumnException;
 import org.sql.tablecache.api.table.TableInfo;
 import org.sql.tablecache.api.table.TableRow;
 
@@ -45,7 +46,14 @@ public class TableRowImpl
     @Override
     public Object get( String columnName )
     {
-        return this.get( this._tableInfo.getColumnIndices().get( columnName ) );
+        try
+        {
+            return this.get( this._tableInfo.getColumnIndices().get( columnName ) );
+        }
+        catch( NullPointerException npe )
+        {
+            throw new NoSuchNamedColumnException( this._tableInfo, columnName );
+        }
     }
 
     @Override
@@ -82,7 +90,8 @@ public class TableRowImpl
     @Override
     public String toString()
     {
-        return Arrays.toString( this._row );
+        return (this._tableInfo.getSchemaName() == null ? "" : this._tableInfo.getSchemaName() + ".")
+            + this._tableInfo.getTableName() + Arrays.toString( this._row );
     }
 
 }

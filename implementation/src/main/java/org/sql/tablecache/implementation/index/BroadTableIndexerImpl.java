@@ -166,11 +166,6 @@ public class BroadTableIndexerImpl extends AbstractTableIndexer
     private final PermutationGenerator<String[]> _permutations;
     private final Set<String> _indexingColumnNames;
 
-    public BroadTableIndexerImpl( CacheInfo cacheInfo )
-    {
-        this( cacheInfo, null );
-    }
-
     public BroadTableIndexerImpl( CacheInfo cacheInfo, Set<String> columnNames )
     {
         this._cacheInfo = cacheInfo;
