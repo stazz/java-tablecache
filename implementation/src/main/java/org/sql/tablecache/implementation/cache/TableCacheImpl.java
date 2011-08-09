@@ -129,6 +129,25 @@ public class TableCacheImpl
     }
 
     @Override
+    public boolean isTableLoaded( String schemaName, String tableName )
+    {
+        synchronized( this._cacheLoadingLock )
+        {
+            return this._cacheInfos.containsKey( schemaName )
+                && this._cacheInfos.get( schemaName ).containsKey( tableName );
+        }
+    }
+
+    @Override
+    public boolean isTableLoaded( String tableName )
+    {
+        synchronized( this._cacheLoadingLock )
+        {
+            return !this._cacheInfos.isEmpty() && this._cacheInfos.values().iterator().next().containsKey( tableName );
+        }
+    }
+
+    @Override
     public <AccessorType extends TableIndexer> AccessorType getDefaultIndexer( Class<AccessorType> accessorClass,
         String schemaName, String tableName )
     {

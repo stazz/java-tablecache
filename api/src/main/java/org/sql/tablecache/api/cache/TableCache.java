@@ -45,6 +45,10 @@ public interface TableCache
 
     public TableIndexer getIndexer( String schemaName, String tableName );
 
+    public boolean isTableLoaded( String tableName );
+
+    public boolean isTableLoaded( String schemaName, String tableName );
+
     public <AccessorType extends TableIndexer> AccessorType getDefaultIndexer( Class<AccessorType> accessorClass,
         String tableName );
 
