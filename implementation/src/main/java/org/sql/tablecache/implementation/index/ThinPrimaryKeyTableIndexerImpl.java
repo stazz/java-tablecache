@@ -33,65 +33,6 @@ public class ThinPrimaryKeyTableIndexerImpl extends AbstractTableIndexer
     implements ThinPrimaryKeyTableIndexer
 {
 
-    private static class ThinTableAccessor
-        implements TableAccessor
-    {
-        private final CacheInfo _cacheInfo;
-        private final Map<Object, TableRow> _rows;
-
-        private ThinTableAccessor( CacheInfo cacheInfo, Map<Object, TableRow> rows )
-        {
-            this._cacheInfo = cacheInfo;
-            this._rows = rows;
-        }
-
-        @Override
-        public Iterator<TableRow> iterator()
-        {
-            return new Iterator<TableRow>()
-            {
-                private Iterator<TableRow> _actualIterator = _rows.values().iterator();
-
-                @Override
-                public boolean hasNext()
-                {
-                    Lock lock = _cacheInfo.getAccessLock().readLock();
-                    lock.lock();
-                    try
-                    {
-                        return _actualIterator.hasNext();
-                    }
-                    finally
-                    {
-                        lock.unlock();
-                    }
-                }
-
-                @Override
-                public TableRow next()
-                {
-                    Lock lock = _cacheInfo.getAccessLock().readLock();
-                    lock.lock();
-                    try
-                    {
-                        return _actualIterator.next();
-                    }
-                    finally
-                    {
-                        lock.unlock();
-                    }
-                }
-
-                @Override
-                public void remove()
-                {
-                    throw new UnsupportedOperationException( "Removing rows from table index is not possible." );
-                }
-            };
-        }
-
-    }
-
     private final Map<Object, TableRow> _rows;
     private final CacheInfo _cacheInfo;
     private final ThinIndexingKeyProvider _pkProvider;
@@ -144,6 +85,6 @@ public class ThinPrimaryKeyTableIndexerImpl extends AbstractTableIndexer
     @Override
     public TableAccessor getRows()
     {
-        return new ThinTableAccessor( this._cacheInfo, this._rows );
+        return new TableAccessorImpl( this._cacheInfo, this._rows.values() );
     }
 }

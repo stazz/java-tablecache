@@ -273,6 +273,7 @@ public class BroadPrimaryKeyTableIndexerImpl extends AbstractTableIndexer
     @Override
     public TableAccessor getRows()
     {
+        // TODO use Iterables.flattenIterables
         return new TableAccessorImpl( this._cacheInfo, this._contents.values().iterator().next(), 0,
             this._indexingColumnNames.size() );
     }
@@ -280,6 +281,7 @@ public class BroadPrimaryKeyTableIndexerImpl extends AbstractTableIndexer
     @Override
     public TableAccessor getRowsPartialPK( String[] indexingColumnNames, Object[] indexingColumnValues )
     {
+        // TODO use Iterables.flattenIterables
         Lock lock = this._cacheInfo.getAccessLock().readLock();
         lock.lock();
         try
