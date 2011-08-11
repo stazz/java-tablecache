@@ -30,20 +30,24 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.qi4j.api.injection.scope.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.sql.generation.api.qi4j.SQLVendorService;
 import org.sql.generation.api.vendor.SQLVendor;
 import org.sql.tablecache.api.cache.TableCache;
 import org.sql.tablecache.api.callbacks.IndexingInfoProvider;
-import org.sql.tablecache.api.callbacks.PrimaryKeyOverride;
 import org.sql.tablecache.api.callbacks.IndexingInfoProvider.DefaultIndexingInfoProvider;
+import org.sql.tablecache.api.callbacks.PrimaryKeyOverride;
 import org.sql.tablecache.api.index.IndexingInfo;
-import org.sql.tablecache.api.index.IndexingInfo.BroadIndexingInfo;
+import org.sql.tablecache.api.index.IndexingInfo.BroadPrimaryKeyIndexingInfo;
 import org.sql.tablecache.api.index.IndexingInfo.ThinIndexingInfo;
+import org.sql.tablecache.api.index.IndexingInfo.ThinPrimaryKeyIndexingInfo;
 import org.sql.tablecache.api.index.TableIndexer;
 import org.sql.tablecache.api.table.TableInfo;
 import org.sql.tablecache.api.table.TableRow;
 import org.sql.tablecache.implementation.index.AbstractTableIndexer;
-import org.sql.tablecache.implementation.index.BroadTableIndexerImpl;
+import org.sql.tablecache.implementation.index.BroadPrimaryKeyTableIndexerImpl;
+import org.sql.tablecache.implementation.index.ThinPrimaryKeyTableIndexerImpl;
 import org.sql.tablecache.implementation.index.ThinTableIndexerImpl;
 import org.sql.tablecache.implementation.table.TableInfoImpl;
 import org.sql.tablecache.implementation.table.TableRowImpl;
@@ -80,6 +84,8 @@ public class TableCacheImpl
             return this._accessLock;
         }
     }
+
+    private static final Logger LOGGER = LoggerFactory.getLogger( TableCacheImpl.class );
 
     private final Map<String, Map<String, CacheInfo>> _cacheInfos;
 
@@ -176,13 +182,13 @@ public class TableCacheImpl
     }
 
     @Override
-    public TableIndexer getIndexer( String schemaName, String tableName )
+    public TableIndexer getDefaultIndexer( String schemaName, String tableName )
     {
         return this.getCacheInfo( schemaName, tableName ).getIndexers().values().iterator().next();
     }
 
     @Override
-    public TableIndexer getIndexer( String tableName )
+    public TableIndexer getDefaultIndexer( String tableName )
     {
         return this.getCacheInfo( tableName ).getIndexers().values().iterator().next();
     }
@@ -460,14 +466,20 @@ public class TableCacheImpl
                     String indexName = indexInfoEntry.getKey();
                     IndexingInfo idxInfo = indexInfoEntry.getValue();
                     switch( idxInfo.getIndexType() ) {
-                    case BROAD:
-                        indexers.put( indexName,
-                            new BroadTableIndexerImpl( cacheInfo, ((BroadIndexingInfo) idxInfo).getIndexingColumns() ) );
+                    case BROAD_PK:
+                        indexers.put( indexName, new BroadPrimaryKeyTableIndexerImpl( cacheInfo,
+                            ((BroadPrimaryKeyIndexingInfo) idxInfo).getIndexingColumns() ) );
+                        break;
+                    case THIN_PK:
+                        indexers.put( indexName, new ThinPrimaryKeyTableIndexerImpl( cacheInfo,
+                            ((ThinPrimaryKeyIndexingInfo) idxInfo).getPkProvider() ) );
                         break;
                     case THIN:
                         indexers.put( indexName,
-                            new ThinTableIndexerImpl( cacheInfo, ((ThinIndexingInfo) idxInfo).getPkProvider() ) );
+                            new ThinTableIndexerImpl( cacheInfo, ((ThinIndexingInfo) idxInfo).getKeyProvider() ) );
                         break;
+                    default:
+                        throw new IllegalArgumentException( "Unknown indexer type: " + idxInfo.getIndexType() );
                     }
                 }
 
@@ -482,6 +494,8 @@ public class TableCacheImpl
                             ((AbstractTableIndexer) entry.getValue()).insertOrUpdateRow( row );
                         }
                     }
+                    LOGGER.info( "Successfully loaded table " + (schemaName == null ? "" : schemaName + ".") + table
+                        + " with indexers " + indexers.keySet() + "." );
                 }
                 finally
                 {

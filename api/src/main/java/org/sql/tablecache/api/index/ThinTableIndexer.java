@@ -12,11 +12,14 @@
  *
  */
 
-
 package org.sql.tablecache.api.index;
 
+/**
+ * 
+ * @author 2011 Stanislav Muhametsin
+ */
 public interface ThinTableIndexer
-    extends TableIndexer
+    extends NonPrimaryKeyTableIndexer
 {
 
 }

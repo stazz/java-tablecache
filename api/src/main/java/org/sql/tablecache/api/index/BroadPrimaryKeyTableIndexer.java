@@ -12,15 +12,20 @@
  *
  */
 
-package org.sql.tablecache.api.callbacks;
 
+package org.sql.tablecache.api.index;
+
+import java.util.Set;
+
+import org.sql.tablecache.api.table.TableAccessor;
 import org.sql.tablecache.api.table.TableRow;
 
-/**
- * 
- * @author 2011 Stanislav Muhametsin
- */
-public interface ThinIndexingPKProvider
+public interface BroadPrimaryKeyTableIndexer
+    extends PrimaryKeyTableIndexer
 {
-    public Object createThinIndexingKey( TableRow row );
+    public TableRow getRow( String[] indexingColumnNames, Object[] indexingColumnValues );
+
+    public TableAccessor getRowsPartialPK( String[] indexingColumnNames, Object[] indexingColumnValues );
+
+    public Set<String> getIndexingColumnNames();
 }

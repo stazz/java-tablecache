@@ -41,9 +41,9 @@ public interface TableCache
 
     public ReadWriteLock getTableLock( String schemaName, String tableName );
 
-    public TableIndexer getIndexer( String tableName );
+    public TableIndexer getDefaultIndexer( String tableName );
 
-    public TableIndexer getIndexer( String schemaName, String tableName );
+    public TableIndexer getDefaultIndexer( String schemaName, String tableName );
 
     public boolean isTableLoaded( String tableName );
 

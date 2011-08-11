@@ -22,6 +22,8 @@ import org.qi4j.api.mixin.Mixins;
 import org.qi4j.api.object.ObjectBuilderFactory;
 import org.qi4j.api.service.Activatable;
 import org.qi4j.api.service.ServiceComposite;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.sql.tablecache.api.cache.TableCache;
 import org.sql.tablecache.api.cache.TableCachingService;
 
@@ -36,6 +38,8 @@ public interface TableCachingServiceComposite
     public class TableCachingServiceMixin
         implements TableCachingService, Activatable
     {
+
+        private static final Logger LOGGER = LoggerFactory.getLogger( TableCachingServiceMixin.class );
 
         @Structure
         private ObjectBuilderFactory _obf;
@@ -72,6 +76,7 @@ public interface TableCachingServiceComposite
                 {
                     cache = this._obf.newObjectBuilder( TableCacheImpl.class ).newInstance();
                     this._caches.put( cacheID, cache );
+                    LOGGER.info( "Created table cache with ID: " + cacheID + "." );
                 }
             }
             return cache;
@@ -97,7 +102,10 @@ public interface TableCachingServiceComposite
         {
             synchronized( this._cacheAccessLock )
             {
-                this._caches.remove( cacheID );
+                if( this._caches.remove( cacheID ) != null )
+                {
+                    LOGGER.info( "Removed table cache with ID: " + cacheID + "." );
+                }
             }
         }
 

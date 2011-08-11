@@ -19,7 +19,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.sql.tablecache.api.index.IndexingInfo;
-import org.sql.tablecache.api.index.IndexingInfo.ThinIndexingInfo;
+import org.sql.tablecache.api.index.IndexingInfo.ThinPrimaryKeyIndexingInfo;
 import org.sql.tablecache.api.table.TableInfo;
 import org.sql.tablecache.api.table.TableRow;
 
@@ -38,7 +38,7 @@ public interface IndexingInfoProvider
         static
         {
             Map<String, IndexingInfo> info = new HashMap<String, IndexingInfo>();
-            info.put( null, new ThinIndexingInfo( new ThinIndexingPKProvider()
+            info.put( null, new ThinPrimaryKeyIndexingInfo( new ThinIndexingKeyProvider()
             {
 
                 @Override

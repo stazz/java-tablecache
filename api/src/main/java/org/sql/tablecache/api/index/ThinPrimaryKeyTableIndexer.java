@@ -12,15 +12,11 @@
  *
  */
 
+
 package org.sql.tablecache.api.index;
 
-import org.sql.tablecache.api.table.TableAccessor;
-
-/**
- * 
- * @author 2011 Stanislav Muhametsin
- */
-public interface TableIndexer
+public interface ThinPrimaryKeyTableIndexer
+    extends PrimaryKeyTableIndexer
 {
-    public TableAccessor getRows();
+
 }

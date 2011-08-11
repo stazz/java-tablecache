@@ -17,7 +17,7 @@ package org.sql.tablecache.api.index;
 import java.util.Set;
 
 import org.qi4j.api.util.NullArgumentException;
-import org.sql.tablecache.api.callbacks.ThinIndexingPKProvider;
+import org.sql.tablecache.api.callbacks.ThinIndexingKeyProvider;
 
 /**
  * 
@@ -27,18 +27,19 @@ public interface IndexingInfo
 {
     public enum IndexType
     {
-        THIN,
-        BROAD
+        THIN_PK,
+        BROAD_PK,
+        THIN
     }
 
     public IndexType getIndexType();
 
-    public final class ThinIndexingInfo
+    public final class ThinPrimaryKeyIndexingInfo
         implements IndexingInfo
     {
-        private final ThinIndexingPKProvider _pkProvider;
+        private final ThinIndexingKeyProvider _pkProvider;
 
-        public ThinIndexingInfo( ThinIndexingPKProvider provider )
+        public ThinPrimaryKeyIndexingInfo( ThinIndexingKeyProvider provider )
         {
             super();
             NullArgumentException.validateNotNull( "thin indexing PK provider", provider );
@@ -46,7 +47,7 @@ public interface IndexingInfo
             this._pkProvider = provider;
         }
 
-        public ThinIndexingPKProvider getPkProvider()
+        public ThinIndexingKeyProvider getPkProvider()
         {
             return this._pkProvider;
         }
@@ -54,16 +55,16 @@ public interface IndexingInfo
         @Override
         public IndexType getIndexType()
         {
-            return IndexType.THIN;
+            return IndexType.THIN_PK;
         }
     }
 
-    public final class BroadIndexingInfo
+    public final class BroadPrimaryKeyIndexingInfo
         implements IndexingInfo
     {
         private final Set<String> _indexingColumns;
 
-        public BroadIndexingInfo( Set<String> indexingColumns )
+        public BroadPrimaryKeyIndexingInfo( Set<String> indexingColumns )
         {
             super();
             this._indexingColumns = indexingColumns;
@@ -77,7 +78,30 @@ public interface IndexingInfo
         @Override
         public IndexType getIndexType()
         {
-            return IndexType.BROAD;
+            return IndexType.BROAD_PK;
+        }
+    }
+
+    public final class ThinIndexingInfo
+        implements IndexingInfo
+    {
+        private final ThinIndexingKeyProvider _keyProvider;
+
+        public ThinIndexingInfo( ThinIndexingKeyProvider provider )
+        {
+            super();
+            this._keyProvider = provider;
+        }
+
+        public ThinIndexingKeyProvider getKeyProvider()
+        {
+            return this._keyProvider;
+        }
+
+        @Override
+        public IndexType getIndexType()
+        {
+            return IndexType.THIN;
         }
     }
 }

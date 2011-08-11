@@ -27,13 +27,13 @@ import java.util.concurrent.locks.Lock;
 import math.permutations.PermutationGenerator;
 import math.permutations.PermutationGeneratorProvider;
 
-import org.sql.tablecache.api.index.BroadTableIndexer;
+import org.sql.tablecache.api.index.BroadPrimaryKeyTableIndexer;
 import org.sql.tablecache.api.table.TableAccessor;
 import org.sql.tablecache.api.table.TableRow;
 import org.sql.tablecache.implementation.cache.TableCacheImpl.CacheInfo;
 
-public class BroadTableIndexerImpl extends AbstractTableIndexer
-    implements BroadTableIndexer
+public class BroadPrimaryKeyTableIndexerImpl extends AbstractTableIndexer
+    implements BroadPrimaryKeyTableIndexer
 {
     private static class TableAccessorImpl
         implements TableAccessor
@@ -166,7 +166,7 @@ public class BroadTableIndexerImpl extends AbstractTableIndexer
     private final PermutationGenerator<String[]> _permutations;
     private final Set<String> _indexingColumnNames;
 
-    public BroadTableIndexerImpl( CacheInfo cacheInfo, Set<String> columnNames )
+    public BroadPrimaryKeyTableIndexerImpl( CacheInfo cacheInfo, Set<String> columnNames )
     {
         this._cacheInfo = cacheInfo;
         this._contents = new HashMap<String, Map<Object, Object>>();

@@ -14,17 +14,13 @@
 
 package org.sql.tablecache.implementation.index;
 
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.locks.Lock;
 
-import org.qi4j.api.util.Iterables;
 import org.sql.tablecache.api.callbacks.ThinIndexingKeyProvider;
-import org.sql.tablecache.api.index.ThinTableIndexer;
+import org.sql.tablecache.api.index.ThinPrimaryKeyTableIndexer;
 import org.sql.tablecache.api.table.TableAccessor;
 import org.sql.tablecache.api.table.TableRow;
 import org.sql.tablecache.implementation.cache.TableCacheImpl.CacheInfo;
@@ -33,19 +29,20 @@ import org.sql.tablecache.implementation.cache.TableCacheImpl.CacheInfo;
  * 
  * @author 2011 Stanislav Muhametsin
  */
-public class ThinTableIndexerImpl extends AbstractTableIndexer
-    implements ThinTableIndexer
+public class ThinPrimaryKeyTableIndexerImpl extends AbstractTableIndexer
+    implements ThinPrimaryKeyTableIndexer
 {
+
     private static class ThinTableAccessor
         implements TableAccessor
     {
         private final CacheInfo _cacheInfo;
-        private final Iterable<TableRow> _realIterable;
+        private final Map<Object, TableRow> _rows;
 
-        private ThinTableAccessor( CacheInfo cacheInfo, Iterable<TableRow> realIterable )
+        private ThinTableAccessor( CacheInfo cacheInfo, Map<Object, TableRow> rows )
         {
             this._cacheInfo = cacheInfo;
-            this._realIterable = realIterable;
+            this._rows = rows;
         }
 
         @Override
@@ -53,7 +50,7 @@ public class ThinTableIndexerImpl extends AbstractTableIndexer
         {
             return new Iterator<TableRow>()
             {
-                private final Iterator<TableRow> _realIterator = _realIterable.iterator();
+                private Iterator<TableRow> _actualIterator = _rows.values().iterator();
 
                 @Override
                 public boolean hasNext()
@@ -62,7 +59,7 @@ public class ThinTableIndexerImpl extends AbstractTableIndexer
                     lock.lock();
                     try
                     {
-                        return _realIterator.hasNext();
+                        return _actualIterator.hasNext();
                     }
                     finally
                     {
@@ -77,7 +74,7 @@ public class ThinTableIndexerImpl extends AbstractTableIndexer
                     lock.lock();
                     try
                     {
-                        return _realIterator.next();
+                        return _actualIterator.next();
                     }
                     finally
                     {
@@ -88,33 +85,32 @@ public class ThinTableIndexerImpl extends AbstractTableIndexer
                 @Override
                 public void remove()
                 {
-                    throw new UnsupportedOperationException( "Indexing is read-only." );
+                    throw new UnsupportedOperationException( "Removing rows from table index is not possible." );
                 }
             };
         }
 
     }
 
-    private final Map<Object, Set<TableRow>> _rows;
+    private final Map<Object, TableRow> _rows;
     private final CacheInfo _cacheInfo;
-    private final ThinIndexingKeyProvider _keyProvider;
+    private final ThinIndexingKeyProvider _pkProvider;
 
-    public ThinTableIndexerImpl( CacheInfo cacheInfo, ThinIndexingKeyProvider provider )
+    public ThinPrimaryKeyTableIndexerImpl( CacheInfo cacheInfo, ThinIndexingKeyProvider provider )
     {
-        this._rows = new HashMap<Object, Set<TableRow>>();
+        this._rows = new HashMap<Object, TableRow>();
         this._cacheInfo = cacheInfo;
-        this._keyProvider = provider;
+        this._pkProvider = provider;
     }
 
     @Override
-    public Iterable<TableRow> getRows( Object indexingColumnValue )
+    public TableRow getRow( Object pk )
     {
         Lock lock = _cacheInfo.getAccessLock().readLock();
         lock.lock();
         try
         {
-            Set<TableRow> rows = this._rows.get( indexingColumnValue );
-            return rows == null ? Collections.EMPTY_SET : new ThinTableAccessor( this._cacheInfo, rows );
+            return this._rows.get( pk );
         }
         finally
         {
@@ -123,38 +119,31 @@ public class ThinTableIndexerImpl extends AbstractTableIndexer
     }
 
     @Override
-    public Boolean hasRows( Object indexingColumnValue )
+    public Boolean hasRow( Object pk )
     {
         Lock lock = _cacheInfo.getAccessLock().readLock();
         lock.lock();
         try
         {
-            return this._rows.containsKey( indexingColumnValue );
+            return this._rows.containsKey( pk );
         }
         finally
         {
             lock.unlock();
         }
+    }
+
+    @Override
+    public void insertOrUpdateRow( TableRow newRow )
+    {
+        Object pk = this._pkProvider.createThinIndexingKey( newRow );
+        // Write-locking is not required as the table cache should do it
+        this._rows.put( pk, newRow );
     }
 
     @Override
     public TableAccessor getRows()
     {
-        return new ThinTableAccessor( this._cacheInfo, Iterables.flattenIterables( this._rows.values() ) );
+        return new ThinTableAccessor( this._cacheInfo, this._rows );
     }
-
-    @Override
-    public void insertOrUpdateRow( TableRow row )
-    {
-        Object pk = this._keyProvider.createThinIndexingKey( row );
-        // Write-locking is not required as the table cache should do it
-        Set<TableRow> rows = this._rows.get( pk );
-        if( rows == null )
-        {
-            rows = new HashSet<TableRow>();
-            this._rows.put( pk, rows );
-        }
-        rows.add( row );
-    }
-
 }
