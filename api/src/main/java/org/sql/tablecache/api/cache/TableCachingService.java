@@ -25,6 +25,13 @@ package org.sql.tablecache.api.cache;
 public interface TableCachingService
 {
 
+    public interface TableCacheResult
+    {
+        public TableCache cache();
+
+        public boolean created();
+    }
+
     /**
      * Gets the table cache associated with given ID (usually schema name).
      * 
@@ -41,7 +48,7 @@ public interface TableCachingService
      * @param cacheID The ID of the cache.
      * @return The table cache with given ID, or an empty table cache if the cache with given IS is not found.
      */
-    public TableCache getOrCreateCache( String cacheID );
+    public TableCacheResult getOrCreateCache( String cacheID );
 
     /**
      * Removes the cache with given ID. Does nothing if the cache with given ID does not exist.

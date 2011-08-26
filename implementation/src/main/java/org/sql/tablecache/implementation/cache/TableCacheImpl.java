@@ -79,6 +79,12 @@ public class TableCacheImpl
             return this._tableInfo;
         }
 
+        /**
+         * TODO this might be useless? Since atm in the project using this, the synchronization is done outside. We
+         * could just say that this is very simple table cache and syncing should be done from the outside.
+         * 
+         * @return
+         */
         public ReadWriteLock getAccessLock()
         {
             return this._accessLock;

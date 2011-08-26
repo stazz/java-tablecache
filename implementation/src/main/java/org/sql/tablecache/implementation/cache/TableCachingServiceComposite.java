@@ -39,6 +39,31 @@ public interface TableCachingServiceComposite
         implements TableCachingService, Activatable
     {
 
+        private class TableCacheResultImpl
+            implements TableCacheResult
+        {
+            private final boolean _created;
+            private final TableCache _cache;
+
+            public TableCacheResultImpl( TableCache cache, boolean created )
+            {
+                this._cache = cache;
+                this._created = created;
+            }
+
+            @Override
+            public TableCache cache()
+            {
+                return this._cache;
+            }
+
+            @Override
+            public boolean created()
+            {
+                return this._created;
+            }
+        }
+
         private static final Logger LOGGER = LoggerFactory.getLogger( TableCachingServiceMixin.class );
 
         @Structure
@@ -66,9 +91,10 @@ public interface TableCachingServiceComposite
         }
 
         @Override
-        public TableCache getOrCreateCache( String cacheID )
+        public TableCacheResult getOrCreateCache( String cacheID )
         {
             TableCache cache = null;
+            boolean created = false;
             synchronized( this._cacheAccessLock )
             {
                 cache = this._caches.get( cacheID );
@@ -76,10 +102,12 @@ public interface TableCachingServiceComposite
                 {
                     cache = this._obf.newObjectBuilder( TableCacheImpl.class ).newInstance();
                     this._caches.put( cacheID, cache );
+                    created = true;
                     LOGGER.info( "Created table cache with ID: " + cacheID + "." );
                 }
             }
-            return cache;
+
+            return new TableCacheResultImpl( cache, created );
         }
 
         @Override
