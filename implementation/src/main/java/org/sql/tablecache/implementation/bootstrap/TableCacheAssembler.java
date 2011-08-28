@@ -14,6 +14,7 @@
 
 package org.sql.tablecache.implementation.bootstrap;
 
+import org.qi4j.api.common.Visibility;
 import org.qi4j.bootstrap.Assembler;
 import org.qi4j.bootstrap.AssemblyException;
 import org.qi4j.bootstrap.ModuleAssembly;
@@ -28,11 +29,23 @@ public class TableCacheAssembler
     implements Assembler
 {
 
+    private final Visibility _visibility;
+
+    public TableCacheAssembler()
+    {
+        this( Visibility.module );
+    }
+
+    public TableCacheAssembler( Visibility visibility )
+    {
+        this._visibility = visibility;
+    }
+
     @Override
     public void assemble( ModuleAssembly module )
         throws AssemblyException
     {
-        module.services( TableCachingServiceComposite.class );
-        module.objects( TableCacheImpl.class );
+        module.services( TableCachingServiceComposite.class ).visibleIn( this._visibility );
+        module.objects( TableCacheImpl.class ).visibleIn( Visibility.module );
     }
 }
