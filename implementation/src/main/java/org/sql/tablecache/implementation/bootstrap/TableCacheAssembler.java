@@ -29,11 +29,13 @@ public class TableCacheAssembler
     implements Assembler
 {
 
+    public static final Visibility DEFAULT_VISIBILITY = Visibility.module;
+
     private final Visibility _visibility;
 
     public TableCacheAssembler()
     {
-        this( Visibility.module );
+        this( DEFAULT_VISIBILITY );
     }
 
     public TableCacheAssembler( Visibility visibility )
