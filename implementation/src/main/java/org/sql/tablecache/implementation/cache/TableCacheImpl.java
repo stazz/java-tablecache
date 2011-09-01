@@ -25,9 +25,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.qi4j.api.injection.scope.Service;
 import org.slf4j.Logger;
@@ -60,12 +57,10 @@ public class TableCacheImpl
     {
         private final TableInfo _tableInfo;
         private final Map<String, TableIndexer> _indexers;
-        private final ReadWriteLock _accessLock;
 
         private CacheInfo( TableInfo tableInfo )
         {
             this._tableInfo = tableInfo;
-            this._accessLock = new ReentrantReadWriteLock();
             this._indexers = new HashMap<String, TableIndexer>();
         }
 
@@ -77,17 +72,6 @@ public class TableCacheImpl
         public TableInfo getTableInfo()
         {
             return this._tableInfo;
-        }
-
-        /**
-         * TODO this might be useless? Since atm in the project using this, the synchronization is done outside. We
-         * could just say that this is very simple table cache and syncing should be done from the outside.
-         * 
-         * @return
-         */
-        public ReadWriteLock getAccessLock()
-        {
-            return this._accessLock;
         }
     }
 
@@ -200,18 +184,6 @@ public class TableCacheImpl
     }
 
     @Override
-    public ReadWriteLock getTableLock( String schemaName, String tableName )
-    {
-        return this.getCacheInfo( schemaName, tableName ).getAccessLock();
-    }
-
-    @Override
-    public ReadWriteLock getTableLock( String tableName )
-    {
-        return this.getCacheInfo( tableName ).getAccessLock();
-    }
-
-    @Override
     public void insertOrUpdateRows( TableRow... rows )
     {
         Map<String, Map<String, List<TableRow>>> sortedRows = new HashMap<String, Map<String, List<TableRow>>>();
@@ -249,21 +221,12 @@ public class TableCacheImpl
     protected void doInsertOrUpdateRows( String schemaName, String tableName, List<TableRow> rows )
     {
         CacheInfo cacheInfo = this.getCacheInfo( schemaName, tableName );
-        Lock lock = cacheInfo.getAccessLock().writeLock();
-        lock.lock();
-        try
+        for( TableIndexer indexer : cacheInfo.getIndexers().values() )
         {
-            for( TableIndexer indexer : cacheInfo.getIndexers().values() )
+            for( TableRow row : rows )
             {
-                for( TableRow row : rows )
-                {
-                    ((AbstractTableIndexer) indexer).insertOrUpdateRow( row );
-                }
+                ((AbstractTableIndexer) indexer).insertOrUpdateRow( row );
             }
-        }
-        finally
-        {
-            lock.unlock();
         }
     }
 
@@ -373,18 +336,8 @@ public class TableCacheImpl
             {
                 for( Map.Entry<String, CacheInfo> entry : map.entrySet() )
                 {
-                    if( existing.containsKey( entry.getKey() ) )
-                    {
-                        // TODO smarter merge.
-                        synchronized( existing.get( entry.getKey() ).getAccessLock() )
-                        {
-                            existing.put( entry.getKey(), entry.getValue() );
-                        }
-                    }
-                    else
-                    {
-                        existing.put( entry.getKey(), entry.getValue() );
-                    }
+                    // TODO smarter merge.
+                    existing.put( entry.getKey(), entry.getValue() );
                 }
             }
         }

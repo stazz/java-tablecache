@@ -37,10 +37,6 @@ public interface TableCache
 
     public TableInfo getTableInfo( String schemaName, String tableName );
 
-    public ReadWriteLock getTableLock( String tableName );
-
-    public ReadWriteLock getTableLock( String schemaName, String tableName );
-
     public TableIndexer getDefaultIndexer( String tableName );
 
     public TableIndexer getDefaultIndexer( String schemaName, String tableName );

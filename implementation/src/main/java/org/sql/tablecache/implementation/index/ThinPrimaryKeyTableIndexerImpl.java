@@ -15,9 +15,7 @@
 package org.sql.tablecache.implementation.index;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.locks.Lock;
 
 import org.sql.tablecache.api.callbacks.ThinIndexingKeyProvider;
 import org.sql.tablecache.api.index.ThinPrimaryKeyTableIndexer;
@@ -47,31 +45,13 @@ public class ThinPrimaryKeyTableIndexerImpl extends AbstractTableIndexer
     @Override
     public TableRow getRow( Object pk )
     {
-        Lock lock = _cacheInfo.getAccessLock().readLock();
-        lock.lock();
-        try
-        {
-            return this._rows.get( pk );
-        }
-        finally
-        {
-            lock.unlock();
-        }
+        return this._rows.get( pk );
     }
 
     @Override
     public Boolean hasRow( Object pk )
     {
-        Lock lock = _cacheInfo.getAccessLock().readLock();
-        lock.lock();
-        try
-        {
-            return this._rows.containsKey( pk );
-        }
-        finally
-        {
-            lock.unlock();
-        }
+        return this._rows.containsKey( pk );
     }
 
     @Override

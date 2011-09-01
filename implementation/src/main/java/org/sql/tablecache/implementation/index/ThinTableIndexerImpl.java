@@ -19,7 +19,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
 
 import org.qi4j.api.util.Iterables;
 import org.sql.tablecache.api.callbacks.ThinIndexingKeyProvider;
@@ -49,32 +48,14 @@ public class ThinTableIndexerImpl extends AbstractTableIndexer
     @Override
     public Iterable<TableRow> getRows( Object indexingColumnValue )
     {
-        Lock lock = _cacheInfo.getAccessLock().readLock();
-        lock.lock();
-        try
-        {
-            Set<TableRow> rows = this._rows.get( indexingColumnValue );
-            return rows == null ? Collections.EMPTY_SET : new TableAccessorImpl( this._cacheInfo, rows );
-        }
-        finally
-        {
-            lock.unlock();
-        }
+        Set<TableRow> rows = this._rows.get( indexingColumnValue );
+        return rows == null ? Collections.EMPTY_SET : new TableAccessorImpl( this._cacheInfo, rows );
     }
 
     @Override
     public Boolean hasRows( Object indexingColumnValue )
     {
-        Lock lock = _cacheInfo.getAccessLock().readLock();
-        lock.lock();
-        try
-        {
-            return this._rows.containsKey( indexingColumnValue );
-        }
-        finally
-        {
-            lock.unlock();
-        }
+        return this._rows.containsKey( indexingColumnValue );
     }
 
     @Override

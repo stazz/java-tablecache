@@ -12,11 +12,9 @@
  *
  */
 
-
 package org.sql.tablecache.implementation.index;
 
 import java.util.Iterator;
-import java.util.concurrent.locks.Lock;
 
 import org.sql.tablecache.api.table.TableAccessor;
 import org.sql.tablecache.api.table.TableRow;
@@ -44,31 +42,13 @@ class TableAccessorImpl
             @Override
             public boolean hasNext()
             {
-                Lock lock = _cacheInfo.getAccessLock().readLock();
-                lock.lock();
-                try
-                {
-                    return _realIterator.hasNext();
-                }
-                finally
-                {
-                    lock.unlock();
-                }
+                return _realIterator.hasNext();
             }
 
             @Override
             public TableRow next()
             {
-                Lock lock = _cacheInfo.getAccessLock().readLock();
-                lock.lock();
-                try
-                {
-                    return _realIterator.next();
-                }
-                finally
-                {
-                    lock.unlock();
-                }
+                return _realIterator.next();
             }
 
             @Override

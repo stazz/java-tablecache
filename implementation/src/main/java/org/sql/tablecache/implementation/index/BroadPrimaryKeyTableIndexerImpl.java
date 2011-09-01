@@ -22,7 +22,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
 
 import math.permutations.PermutationGenerator;
 import math.permutations.PermutationGeneratorProvider;
@@ -78,43 +77,25 @@ public class BroadPrimaryKeyTableIndexerImpl extends AbstractTableIndexer
                     {
                         this._iters.push( _index.values().iterator() );
                     }
-                    Lock lock = _cacheInfo.getAccessLock().readLock();
-                    lock.lock();
-                    try
-                    {
-                        this.reset();
-                    }
-                    finally
-                    {
-                        lock.unlock();
-                    }
+                    this.reset();
                 }
 
                 @Override
                 public boolean hasNext()
                 {
                     boolean result = false;
-                    Lock lock = _cacheInfo.getAccessLock().readLock();
-                    lock.lock();
-                    try
+                    while( !result && !this._iters.isEmpty() )
                     {
-                        while( !result && !this._iters.isEmpty() )
+                        result = this._iters.peek().hasNext();
+                        if( !result )
                         {
-                            result = this._iters.peek().hasNext();
-                            if( !result )
-                            {
-                                this._iters.pop();
-                            }
-                        }
-
-                        if( result && this._iters.size() < this._dequeDepth )
-                        {
-                            this.reset();
+                            this._iters.pop();
                         }
                     }
-                    finally
+
+                    if( result && this._iters.size() < this._dequeDepth )
                     {
-                        lock.unlock();
+                        this.reset();
                     }
                     return result;
                 }
@@ -122,16 +103,7 @@ public class BroadPrimaryKeyTableIndexerImpl extends AbstractTableIndexer
                 @Override
                 public TableRow next()
                 {
-                    Lock lock = _cacheInfo.getAccessLock().readLock();
-                    lock.lock();
-                    try
-                    {
-                        return (TableRow) this._iters.peek().next();
-                    }
-                    finally
-                    {
-                        lock.unlock();
-                    }
+                    return (TableRow) this._iters.peek().next();
                 }
 
                 @Override
@@ -184,53 +156,26 @@ public class BroadPrimaryKeyTableIndexerImpl extends AbstractTableIndexer
     @Override
     public TableRow getRow( String[] indexingColumnNames, Object[] indexingColumnValues )
     {
-        Lock lock = this._cacheInfo.getAccessLock().readLock();
-        lock.lock();
-        try
+        Map<Object, Object> current = this._contents.get( indexingColumnNames[0] );
+        for( int idx = 1; idx < indexingColumnNames.length; ++idx )
         {
-            Map<Object, Object> current = this._contents.get( indexingColumnNames[0] );
-            for( int idx = 1; idx < indexingColumnNames.length; ++idx )
-            {
-                current = ((Map<String, Map<Object, Object>>) current.get( indexingColumnValues[idx - 1] ))
-                    .get( indexingColumnNames[idx] );
-            }
+            current = ((Map<String, Map<Object, Object>>) current.get( indexingColumnValues[idx - 1] ))
+                .get( indexingColumnNames[idx] );
+        }
 
-            return (TableRow) current.get( indexingColumnValues[indexingColumnValues.length - 1] );
-        }
-        finally
-        {
-            lock.unlock();
-        }
+        return (TableRow) current.get( indexingColumnValues[indexingColumnValues.length - 1] );
     }
 
     @Override
     public TableRow getRow( Object pk )
     {
-        Lock lock = this._cacheInfo.getAccessLock().readLock();
-        lock.lock();
-        try
-        {
-            return (TableRow) this._contents.values().iterator().next().get( pk );
-        }
-        finally
-        {
-            lock.unlock();
-        }
+        return (TableRow) this._contents.values().iterator().next().get( pk );
     }
 
     @Override
     public Boolean hasRow( Object pk )
     {
-        Lock lock = this._cacheInfo.getAccessLock().readLock();
-        lock.lock();
-        try
-        {
-            return this._contents.values().iterator().next().containsKey( pk );
-        }
-        finally
-        {
-            lock.unlock();
-        }
+        return this._contents.values().iterator().next().containsKey( pk );
     }
 
     @Override
@@ -282,50 +227,41 @@ public class BroadPrimaryKeyTableIndexerImpl extends AbstractTableIndexer
     public TableAccessor getRowsPartialPK( String[] indexingColumnNames, Object[] indexingColumnValues )
     {
         // TODO use Iterables.flattenIterables
-        Lock lock = this._cacheInfo.getAccessLock().readLock();
-        lock.lock();
-        try
+        Map<Object, Object> current = this._contents.get( indexingColumnNames[0] );
+        for( int idx = 1; idx < indexingColumnNames.length; ++idx )
         {
-            Map<Object, Object> current = this._contents.get( indexingColumnNames[0] );
-            for( int idx = 1; idx < indexingColumnNames.length; ++idx )
+            Map<String, Map<Object, Object>> mapz = (Map<String, Map<Object, Object>>) current
+                .get( indexingColumnValues[idx - 1] );
+            if( mapz != null )
             {
-                Map<String, Map<Object, Object>> mapz = (Map<String, Map<Object, Object>>) current
-                    .get( indexingColumnValues[idx - 1] );
-                if( mapz != null )
-                {
-                    current = mapz.get( indexingColumnNames[idx] );
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            TableAccessor result = null;
-            if( current != null )
-            {
-                Map<Object, Object> mapz = (Map<Object, Object>) current
-                    .get( indexingColumnValues[indexingColumnValues.length - 1] );
-                if( mapz == null )
-                {
-                    result = TableAccessorImpl.EMPTY;
-                }
-                else
-                {
-                    result = new TableAccessorImpl( this._cacheInfo, (Map<Object, Object>) (mapz).values().iterator()
-                        .next(), indexingColumnNames.length, this._indexingColumnNames.size() );
-                }
+                current = mapz.get( indexingColumnNames[idx] );
             }
             else
             {
+                break;
+            }
+        }
+
+        TableAccessor result = null;
+        if( current != null )
+        {
+            Map<Object, Object> mapz = (Map<Object, Object>) current
+                .get( indexingColumnValues[indexingColumnValues.length - 1] );
+            if( mapz == null )
+            {
                 result = TableAccessorImpl.EMPTY;
             }
-
-            return result;
+            else
+            {
+                result = new TableAccessorImpl( this._cacheInfo, (Map<Object, Object>) (mapz).values().iterator()
+                    .next(), indexingColumnNames.length, this._indexingColumnNames.size() );
+            }
         }
-        finally
+        else
         {
-            lock.unlock();
+            result = TableAccessorImpl.EMPTY;
         }
+
+        return result;
     }
 }
