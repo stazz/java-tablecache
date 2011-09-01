@@ -18,7 +18,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.sql.tablecache.api.callbacks.ThinIndexingKeyProvider;
-import org.sql.tablecache.api.index.ThinPrimaryKeyTableIndexer;
+import org.sql.tablecache.api.index.ThinUniqueTableIndexer;
 import org.sql.tablecache.api.table.TableAccessor;
 import org.sql.tablecache.api.table.TableRow;
 import org.sql.tablecache.implementation.cache.TableCacheImpl.CacheInfo;
@@ -27,15 +27,15 @@ import org.sql.tablecache.implementation.cache.TableCacheImpl.CacheInfo;
  * 
  * @author 2011 Stanislav Muhametsin
  */
-public class ThinPrimaryKeyTableIndexerImpl extends AbstractTableIndexer
-    implements ThinPrimaryKeyTableIndexer
+public class ThinUniqueTableIndexerImpl extends AbstractTableIndexer
+    implements ThinUniqueTableIndexer
 {
 
     private final Map<Object, TableRow> _rows;
     private final CacheInfo _cacheInfo;
     private final ThinIndexingKeyProvider _pkProvider;
 
-    public ThinPrimaryKeyTableIndexerImpl( CacheInfo cacheInfo, ThinIndexingKeyProvider provider )
+    public ThinUniqueTableIndexerImpl( CacheInfo cacheInfo, ThinIndexingKeyProvider provider )
     {
         this._rows = new HashMap<Object, TableRow>();
         this._cacheInfo = cacheInfo;

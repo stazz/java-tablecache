@@ -43,8 +43,8 @@ import org.sql.tablecache.api.index.TableIndexer;
 import org.sql.tablecache.api.table.TableInfo;
 import org.sql.tablecache.api.table.TableRow;
 import org.sql.tablecache.implementation.index.AbstractTableIndexer;
-import org.sql.tablecache.implementation.index.BroadPrimaryKeyTableIndexerImpl;
-import org.sql.tablecache.implementation.index.ThinPrimaryKeyTableIndexerImpl;
+import org.sql.tablecache.implementation.index.BroadUniqueTableIndexerImpl;
+import org.sql.tablecache.implementation.index.ThinUniqueTableIndexerImpl;
 import org.sql.tablecache.implementation.index.ThinTableIndexerImpl;
 import org.sql.tablecache.implementation.table.TableInfoImpl;
 import org.sql.tablecache.implementation.table.TableRowImpl;
@@ -426,11 +426,11 @@ public class TableCacheImpl
                     IndexingInfo idxInfo = indexInfoEntry.getValue();
                     switch( idxInfo.getIndexType() ) {
                     case BROAD_PK:
-                        indexers.put( indexName, new BroadPrimaryKeyTableIndexerImpl( cacheInfo,
+                        indexers.put( indexName, new BroadUniqueTableIndexerImpl( cacheInfo,
                             ((BroadPrimaryKeyIndexingInfo) idxInfo).getIndexingColumns() ) );
                         break;
                     case THIN_PK:
-                        indexers.put( indexName, new ThinPrimaryKeyTableIndexerImpl( cacheInfo,
+                        indexers.put( indexName, new ThinUniqueTableIndexerImpl( cacheInfo,
                             ((ThinPrimaryKeyIndexingInfo) idxInfo).getPkProvider() ) );
                         break;
                     case THIN:

@@ -12,14 +12,11 @@
  *
  */
 
+
 package org.sql.tablecache.api.index;
 
-import org.sql.tablecache.api.table.TableRow;
-
-public interface PrimaryKeyTableIndexer
-    extends TableIndexer
+public interface ThinUniqueTableIndexer
+    extends UniqueTableIndexer
 {
-    public TableRow getRow( Object pk );
 
-    public Boolean hasRow( Object pk );
 }

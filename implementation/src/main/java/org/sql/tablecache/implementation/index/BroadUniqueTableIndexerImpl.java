@@ -26,13 +26,13 @@ import java.util.Set;
 import math.permutations.PermutationGenerator;
 import math.permutations.PermutationGeneratorProvider;
 
-import org.sql.tablecache.api.index.BroadPrimaryKeyTableIndexer;
+import org.sql.tablecache.api.index.BroadUniqueTableIndexer;
 import org.sql.tablecache.api.table.TableAccessor;
 import org.sql.tablecache.api.table.TableRow;
 import org.sql.tablecache.implementation.cache.TableCacheImpl.CacheInfo;
 
-public class BroadPrimaryKeyTableIndexerImpl extends AbstractTableIndexer
-    implements BroadPrimaryKeyTableIndexer
+public class BroadUniqueTableIndexerImpl extends AbstractTableIndexer
+    implements BroadUniqueTableIndexer
 {
     private static class TableAccessorImpl
         implements TableAccessor
@@ -138,7 +138,7 @@ public class BroadPrimaryKeyTableIndexerImpl extends AbstractTableIndexer
     private final PermutationGenerator<String[]> _permutations;
     private final Set<String> _indexingColumnNames;
 
-    public BroadPrimaryKeyTableIndexerImpl( CacheInfo cacheInfo, Set<String> columnNames )
+    public BroadUniqueTableIndexerImpl( CacheInfo cacheInfo, Set<String> columnNames )
     {
         this._cacheInfo = cacheInfo;
         this._contents = new HashMap<String, Map<Object, Object>>();
