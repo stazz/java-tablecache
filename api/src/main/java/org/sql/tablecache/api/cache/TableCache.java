@@ -17,12 +17,11 @@ package org.sql.tablecache.api.cache;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.concurrent.locks.ReadWriteLock;
 
 import org.qi4j.api.common.Optional;
 import org.sql.tablecache.api.callbacks.IndexingInfoProvider;
 import org.sql.tablecache.api.callbacks.PrimaryKeyOverride;
-import org.sql.tablecache.api.index.TableIndexer;
+import org.sql.tablecache.api.table.Table;
 import org.sql.tablecache.api.table.TableInfo;
 import org.sql.tablecache.api.table.TableRow;
 
@@ -33,29 +32,13 @@ import org.sql.tablecache.api.table.TableRow;
 public interface TableCache
 {
 
-    public TableInfo getTableInfo( String tableName );
+    public Table getTable( String tableName );
 
-    public TableInfo getTableInfo( String schemaName, String tableName );
-
-    public TableIndexer getDefaultIndexer( String tableName );
-
-    public TableIndexer getDefaultIndexer( String schemaName, String tableName );
+    public Table getTable( String schemaName, String tableName );
 
     public boolean isTableLoaded( String tableName );
 
     public boolean isTableLoaded( String schemaName, String tableName );
-
-    public <AccessorType extends TableIndexer> AccessorType getDefaultIndexer( Class<AccessorType> accessorClass,
-        String tableName );
-
-    public <AccessorType extends TableIndexer> AccessorType getDefaultIndexer( Class<AccessorType> accessorClass,
-        String schemaName, String tableName );
-
-    public <AccessorType extends TableIndexer> AccessorType getIndexer( Class<AccessorType> accessorClass,
-        String tableName, String indexName );
-
-    public <AccessorType extends TableIndexer> AccessorType getIndexer( Class<AccessorType> accessorClass,
-        String schemaName, String tableName, @Optional String indexName );
 
     public void buildCache( Connection connection, String schemaName )
         throws SQLException;
@@ -83,11 +66,6 @@ public interface TableCache
         throws SQLException;
 
     public void clearCache();
-
-    public TableRow createRow( ResultSet row, TableInfo tableInfo )
-        throws SQLException;
-
-    public void insertOrUpdateRows( TableRow... rows );
 
     public interface TableFilter
     {

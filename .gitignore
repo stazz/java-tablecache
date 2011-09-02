@@ -1,3 +1,7 @@
+# Ignore default maven target folders
 target
-api/target/
-implementation/target/
+
+# Ignore Eclipse files and folders
+.settings
+.project
+.classpath

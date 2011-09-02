@@ -25,7 +25,6 @@ import org.sql.tablecache.api.callbacks.ThinIndexingKeyProvider;
 import org.sql.tablecache.api.index.ThinTableIndexer;
 import org.sql.tablecache.api.table.TableAccessor;
 import org.sql.tablecache.api.table.TableRow;
-import org.sql.tablecache.implementation.cache.TableCacheImpl.CacheInfo;
 
 /**
  * 
@@ -35,13 +34,11 @@ public class ThinTableIndexerImpl extends AbstractTableIndexer
     implements ThinTableIndexer
 {
     private final Map<Object, Set<TableRow>> _rows;
-    private final CacheInfo _cacheInfo;
     private final ThinIndexingKeyProvider _keyProvider;
 
-    public ThinTableIndexerImpl( CacheInfo cacheInfo, ThinIndexingKeyProvider provider )
+    public ThinTableIndexerImpl( ThinIndexingKeyProvider provider )
     {
         this._rows = new HashMap<Object, Set<TableRow>>();
-        this._cacheInfo = cacheInfo;
         this._keyProvider = provider;
     }
 
@@ -49,7 +46,7 @@ public class ThinTableIndexerImpl extends AbstractTableIndexer
     public Iterable<TableRow> getRows( Object indexingColumnValue )
     {
         Set<TableRow> rows = this._rows.get( indexingColumnValue );
-        return rows == null ? Collections.EMPTY_SET : new TableAccessorImpl( this._cacheInfo, rows );
+        return rows == null ? Collections.EMPTY_SET : new TableAccessorImpl( rows );
     }
 
     @Override
@@ -61,7 +58,7 @@ public class ThinTableIndexerImpl extends AbstractTableIndexer
     @Override
     public TableAccessor getRows()
     {
-        return new TableAccessorImpl( this._cacheInfo, Iterables.flattenIterables( this._rows.values() ) );
+        return new TableAccessorImpl( Iterables.flattenIterables( this._rows.values() ) );
     }
 
     @Override

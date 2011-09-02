@@ -21,7 +21,6 @@ import org.sql.tablecache.api.callbacks.ThinIndexingKeyProvider;
 import org.sql.tablecache.api.index.ThinUniqueTableIndexer;
 import org.sql.tablecache.api.table.TableAccessor;
 import org.sql.tablecache.api.table.TableRow;
-import org.sql.tablecache.implementation.cache.TableCacheImpl.CacheInfo;
 
 /**
  * 
@@ -32,13 +31,11 @@ public class ThinUniqueTableIndexerImpl extends AbstractTableIndexer
 {
 
     private final Map<Object, TableRow> _rows;
-    private final CacheInfo _cacheInfo;
     private final ThinIndexingKeyProvider _pkProvider;
 
-    public ThinUniqueTableIndexerImpl( CacheInfo cacheInfo, ThinIndexingKeyProvider provider )
+    public ThinUniqueTableIndexerImpl( ThinIndexingKeyProvider provider )
     {
         this._rows = new HashMap<Object, TableRow>();
-        this._cacheInfo = cacheInfo;
         this._pkProvider = provider;
     }
 
@@ -65,6 +62,6 @@ public class ThinUniqueTableIndexerImpl extends AbstractTableIndexer
     @Override
     public TableAccessor getRows()
     {
-        return new TableAccessorImpl( this._cacheInfo, this._rows.values() );
+        return new TableAccessorImpl( this._rows.values() );
     }
 }

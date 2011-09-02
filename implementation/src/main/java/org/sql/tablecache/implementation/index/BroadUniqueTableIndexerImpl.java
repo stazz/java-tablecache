@@ -18,7 +18,6 @@ import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -29,7 +28,6 @@ import math.permutations.PermutationGeneratorProvider;
 import org.sql.tablecache.api.index.BroadUniqueTableIndexer;
 import org.sql.tablecache.api.table.TableAccessor;
 import org.sql.tablecache.api.table.TableRow;
-import org.sql.tablecache.implementation.cache.TableCacheImpl.CacheInfo;
 
 public class BroadUniqueTableIndexerImpl extends AbstractTableIndexer
     implements BroadUniqueTableIndexer
@@ -47,14 +45,12 @@ public class BroadUniqueTableIndexerImpl extends AbstractTableIndexer
             }
         };
 
-        private final CacheInfo _cacheInfo;
         private final Map<Object, Object> _index;
         private final int _decidedPKs;
         private final int _maxPKs;
 
-        public TableAccessorImpl( CacheInfo cacheInfo, Map<Object, Object> pkIndex, int decidedPKs, int maxPKs )
+        public TableAccessorImpl( Map<Object, Object> pkIndex, int decidedPKs, int maxPKs )
         {
-            this._cacheInfo = cacheInfo;
             this._index = pkIndex;
             this._decidedPKs = decidedPKs;
             this._maxPKs = maxPKs;
@@ -134,16 +130,13 @@ public class BroadUniqueTableIndexerImpl extends AbstractTableIndexer
     }
 
     private final Map<String, Map<Object, Object>> _contents;
-    private final CacheInfo _cacheInfo;
     private final PermutationGenerator<String[]> _permutations;
     private final Set<String> _indexingColumnNames;
 
-    public BroadUniqueTableIndexerImpl( CacheInfo cacheInfo, Set<String> columnNames )
+    public BroadUniqueTableIndexerImpl( Set<String> columnNames )
     {
-        this._cacheInfo = cacheInfo;
         this._contents = new HashMap<String, Map<Object, Object>>();
-        this._indexingColumnNames = columnNames == null ? Collections.unmodifiableSet( cacheInfo.getTableInfo()
-            .getPkColumns() ) : Collections.unmodifiableSet( new HashSet<String>( columnNames ) );
+        this._indexingColumnNames = Collections.unmodifiableSet( columnNames );
         this._permutations = PermutationGeneratorProvider.createGenericComparablePermutationGenerator( String.class,
             this._indexingColumnNames );
     }
@@ -219,8 +212,7 @@ public class BroadUniqueTableIndexerImpl extends AbstractTableIndexer
     public TableAccessor getRows()
     {
         // TODO use Iterables.flattenIterables
-        return new TableAccessorImpl( this._cacheInfo, this._contents.values().iterator().next(), 0,
-            this._indexingColumnNames.size() );
+        return new TableAccessorImpl( this._contents.values().iterator().next(), 0, this._indexingColumnNames.size() );
     }
 
     @Override
@@ -253,8 +245,8 @@ public class BroadUniqueTableIndexerImpl extends AbstractTableIndexer
             }
             else
             {
-                result = new TableAccessorImpl( this._cacheInfo, (Map<Object, Object>) (mapz).values().iterator()
-                    .next(), indexingColumnNames.length, this._indexingColumnNames.size() );
+                result = new TableAccessorImpl( (Map<Object, Object>) (mapz).values().iterator().next(),
+                    indexingColumnNames.length, this._indexingColumnNames.size() );
             }
         }
         else

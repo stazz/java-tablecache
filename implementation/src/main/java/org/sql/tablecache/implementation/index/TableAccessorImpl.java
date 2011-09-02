@@ -18,17 +18,14 @@ import java.util.Iterator;
 
 import org.sql.tablecache.api.table.TableAccessor;
 import org.sql.tablecache.api.table.TableRow;
-import org.sql.tablecache.implementation.cache.TableCacheImpl.CacheInfo;
 
 class TableAccessorImpl
     implements TableAccessor
 {
-    private final CacheInfo _cacheInfo;
     private final Iterable<TableRow> _realIterable;
 
-    TableAccessorImpl( CacheInfo cacheInfo, Iterable<TableRow> realIterable )
+    TableAccessorImpl( Iterable<TableRow> realIterable )
     {
-        this._cacheInfo = cacheInfo;
         this._realIterable = realIterable;
     }
 
