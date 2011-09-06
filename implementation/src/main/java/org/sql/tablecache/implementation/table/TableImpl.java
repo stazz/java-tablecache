@@ -106,4 +106,22 @@ public class TableImpl
         }
     }
 
+    @Override
+    public boolean equals( Object obj )
+    {
+        return this == obj || (obj instanceof Table && this._tableInfo.equals( ((Table) obj).getTableInfo() ));
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return this._tableInfo.hashCode();
+    }
+
+    @Override
+    public String toString()
+    {
+        return this._tableInfo.toString();
+    }
+
 }

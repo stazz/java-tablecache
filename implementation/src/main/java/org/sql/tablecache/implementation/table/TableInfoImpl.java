@@ -83,4 +83,25 @@ public class TableInfoImpl
         return this._tableName;
     }
 
+    @Override
+    public String toString()
+    {
+        return (this._schemaName == null ? "" : (this._schemaName + ".")) + this._tableName;
+    }
+
+    @Override
+    public boolean equals( Object obj )
+    {
+        return this == obj
+            || (obj instanceof TableInfo
+                && ((this._schemaName == null && ((TableInfo) obj).getSchemaName() == null) || (this._schemaName != null && this._schemaName
+                    .equals( ((TableInfo) obj).getSchemaName() ))) && this._tableName.equals( ((TableInfo) obj)
+                .getTableName() ));
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return (this._schemaName == null ? 0 : this._schemaName.hashCode()) + (31 * this._tableName.hashCode());
+    }
 }
