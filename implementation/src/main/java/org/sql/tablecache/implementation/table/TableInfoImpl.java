@@ -30,8 +30,10 @@ public class TableInfoImpl
     private final List<String> _columns;
     private final Map<String, Integer> _columnIndices;
     private final Set<String> _pkColumns;
+    private final List<Integer> _columnTypes;
 
-    public TableInfoImpl( String schemaName, String tableName, List<String> columns, Set<String> pkColumns )
+    public TableInfoImpl( String schemaName, String tableName, List<String> columns, Set<String> pkColumns,
+        List<Integer> columnTypes )
     {
         this._schemaName = schemaName;
         this._tableName = tableName;
@@ -51,6 +53,7 @@ public class TableInfoImpl
             }
         }
         this._columnIndices = Collections.unmodifiableMap( columnIndices );
+        this._columnTypes = Collections.unmodifiableList( columnTypes );
     }
 
     @Override
@@ -81,6 +84,12 @@ public class TableInfoImpl
     public String getTableName()
     {
         return this._tableName;
+    }
+
+    @Override
+    public List<Integer> getColumnTypes()
+    {
+        return this._columnTypes;
     }
 
     @Override

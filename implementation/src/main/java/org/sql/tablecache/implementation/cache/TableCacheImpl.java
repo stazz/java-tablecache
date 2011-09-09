@@ -175,12 +175,14 @@ public class TableCacheImpl
         for( String tableName : tableNames )
         {
             List<String> columnList = new ArrayList<String>();
+            List<Integer> columnTypeList = new ArrayList<Integer>();
             ResultSet cols = connection.getMetaData().getColumns( null, schemaName, tableName, null );
             try
             {
                 while( cols.next() )
                 {
                     columnList.add( cols.getString( "COLUMN_NAME" ).toLowerCase() );
+                    columnTypeList.add( cols.getInt( "DATA_TYPE" ) );
                 }
             }
             finally
@@ -213,7 +215,7 @@ public class TableCacheImpl
                     cols.close();
                 }
             }
-            tableInfos.add( new TableInfoImpl( schemaName, tableName, columnList, pks ) );
+            tableInfos.add( new TableInfoImpl( schemaName, tableName, columnList, pks, columnTypeList ) );
         }
 
         Map<String, Map<String, Table>> tables = new HashMap<String, Map<String, Table>>();

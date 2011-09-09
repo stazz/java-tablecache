@@ -14,6 +14,7 @@
 
 package org.sql.tablecache.api.table;
 
+import java.sql.Types;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,6 +30,7 @@ public interface TableInfo
 
     public Set<String> getPkColumns();
 
+    // TODO ColumnInfo (isPK, name, type)
     /**
      * Returns the names of all the columns of this table. It is guaranteed that this list will be essentially a set.
      * Additionally, for all column names, the value for the column is at same index in row, as it is in the column list
@@ -41,5 +43,13 @@ public interface TableInfo
     public String getTableName();
 
     public String getSchemaName();
+
+    /**
+     * Returns column types as one of the static values in {@link Types} class. Order is the same as in
+     * {@link #getColumns()} method.
+     * 
+     * @return Column types as one of the static values in {@link Types} class.
+     */
+    public List<Integer> getColumnTypes();
 
 }
