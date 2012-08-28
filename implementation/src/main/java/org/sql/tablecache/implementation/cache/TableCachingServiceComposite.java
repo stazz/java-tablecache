@@ -19,9 +19,9 @@ import java.util.Map;
 
 import org.qi4j.api.injection.scope.Structure;
 import org.qi4j.api.mixin.Mixins;
-import org.qi4j.api.object.ObjectBuilderFactory;
 import org.qi4j.api.service.Activatable;
 import org.qi4j.api.service.ServiceComposite;
+import org.qi4j.api.structure.Module;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sql.tablecache.api.cache.TableCache;
@@ -67,7 +67,7 @@ public interface TableCachingServiceComposite
         private static final Logger LOGGER = LoggerFactory.getLogger( TableCachingServiceMixin.class );
 
         @Structure
-        private ObjectBuilderFactory _obf;
+        private Module _obf;
 
         private Map<String, TableCache> _caches;
 
@@ -100,7 +100,7 @@ public interface TableCachingServiceComposite
                 cache = this._caches.get( cacheID );
                 if( cache == null )
                 {
-                    cache = this._obf.newObjectBuilder( TableCacheImpl.class ).newInstance();
+                    cache = this._obf.newObject( TableCacheImpl.class );
                     this._caches.put( cacheID, cache );
                     created = true;
                     LOGGER.info( "Created table cache with ID: " + cacheID + "." );
