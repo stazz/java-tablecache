@@ -20,7 +20,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.qi4j.api.util.Iterables;
+import org.qi4j.functional.Iterables;
 import org.sql.tablecache.api.callbacks.ThinIndexingKeyProvider;
 import org.sql.tablecache.api.index.ThinTableIndexer;
 import org.sql.tablecache.api.table.TableAccessor;
